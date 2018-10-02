@@ -86,12 +86,9 @@ table(titanic.full$Embarked)
 
 ## We will need to cleen up those missing value in a way that will help us then create a reliable model
 
-### we build a quick filter
-### titanic.full$Embarked == ''
-### Next I want to query just an Embarked column of a titanic.full
-### so I want to filter all the Embarked that is NA , and i want only the Embarked column to come back
-### based on a table that we built previously for Embarked column, there are 2 such values
-### 
+## Next I want to query just an Embarked column of a titanic.full
+## so I want to filter all the Embarked that is NA , and i want only the Embarked column to come back
+## based on a table that we built previously for Embarked column, there are 2 such values
 
 ## now we want to replace them with something, let's for now do the most frequent value (or median)
 titanic.full[titanic.full$Embarked == '', "Embarked"] <- 'S'
@@ -143,8 +140,8 @@ table (titanic.train$Pclass, titanic.train$Survived)
 ## Number of male survived in 1st cabin class is roughly half the amount of those who perished
 
 ## Next we'll create a column for famil size
-titanic.train$FamSize <- 1 + titanic.train$SibSp + titanic.train$Parch
-titanic.test$FamSize <- 1 + titanic.test$SibSp + titanic.test$Parch
+# titanic.train$FamSize <- 1 + titanic.train$SibSp + titanic.train$Parch
+# titanic.test$FamSize <- 1 + titanic.test$SibSp + titanic.test$Parch
 titanic.full$FamSize <- 1 + titanic.full$SibSp + titanic.full$Parch
 
 ## next we'll create Age groups
@@ -158,7 +155,7 @@ titanic.full$Is_Child_or_Woman <- ifelse(titanic.full$Age_Group == "Child"| tita
 ## then we split our new dataset into two chunks, one to create a model
 ## and then test it on a train set
 
-train <- titanic.full[c(2,3, 5, 6, 10, 12, 14, 15)]
+train <- titanic.full[c(2,3, 5, 6, 12, 14, 15)]
 train.fit <- train[1:700,]
 train.test <- train[701:891,]
 
@@ -183,3 +180,11 @@ anova(model, test = "Chisq")
 ## Now we are going to assess the predictive ability of our model
 
 fitted.res <- predict(model, newdata = subset(train.test, type = 'response')) 
+fitted.res <- ifelse(fitted.res > 0.5,1,0)
+
+accur <- mean(fitted.res != train.test$Survived)
+print(paste('Accuracy',1-accur))
+
+
+
+tresh <- 0.65
