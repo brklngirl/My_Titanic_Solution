@@ -221,4 +221,3 @@ levels(titanic.full$Title)
 
 
 rm(list = ls())
-##test
