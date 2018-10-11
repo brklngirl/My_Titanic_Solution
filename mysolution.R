@@ -217,7 +217,18 @@ titanic.full$Title <- as.factor(titanic.full$Title)
 
 ## Lets see how many different titles there are, ad check for validity 
 str(titanic.full$Title)
-levels(titanic.full$Title)
+TL <- levels(titanic.full$Title)
+table(titanic.full$Title, titanic.full$Age_Group) 
+table(titanic.full$Title, titanic.full$Sex)
+
+### install.packages("car")
+### library("car")
+
+levels(titanic.full$Title) <- ifelse(TL %in%  c("Don.", "Jonkheer.", "Major.", "Sir.", "Rev.", "Capt.", "Dona.", "Col.", "Countess.", "Dr."), "Other", 
+                                     ifelse(TL %in% c("Lady.", "Ms.", "Mme."), "Mrs.",
+                                            ifelse(TL == "Mlle.", "Miss.", TL)))
+
+table(titanic.full$Title, titanic.full$Sex)
 
 
 rm(list = ls())
