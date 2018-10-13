@@ -221,14 +221,51 @@ TL <- levels(titanic.full$Title)
 table(titanic.full$Title, titanic.full$Age_Group) 
 table(titanic.full$Title, titanic.full$Sex)
 
-### install.packages("car")
-### library("car")
-
+##No we will group outliers among titles into "other" group, and similar ones into the larger buckets
 levels(titanic.full$Title) <- ifelse(TL %in%  c("Don.", "Jonkheer.", "Major.", "Sir.", "Rev.", "Capt.", "Dona.", "Col.", "Countess.", "Dr."), "Other", 
                                      ifelse(TL %in% c("Lady.", "Ms.", "Mme."), "Mrs.",
                                             ifelse(TL == "Mlle.", "Miss.", TL)))
 
+## Let's check, if we got the desired large groups of Titles
 table(titanic.full$Title, titanic.full$Sex)
+
+## Now, we will recreate our model including Titles variable;
+## I also want to see if SibSp and ParCh on its own has any visible effect
+## I keep all names the same as in original model
+
+train <- titanic.full[c(2,3, 5, 6, 7, 8, 12, 14, 15, 18)]
+train.fit <- train[1:700,]
+train.test <- train[701:891,]
+
+## now we recreate a model
+model <- glm(Survived ~ ., family = binomial(link='logit'), data = train.fit )
+
+## by using summary() we obtain results of our model
+summary(model)
+
+## next we run anova() function to analyze the deviance
+anova(model, test = "Chisq")
+
+## Now we are going to assess the predictive ability of our model
+fitted.res <- predict(model, newdata = subset(train.test, type = 'response')) 
+fitted.res <- ifelse(fitted.res > 0.5,1,0)
+
+accur <- mean(fitted.res != train.test$Survived)
+print(paste('Accuracy',1-accur))
+
+p <- predict(model, newdata = subset(train.test, select = c(2, 3, 4, 5, 6, 7)), type = "response")
+pr <- prediction(p, train.test$Survived)
+
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+## we got pretty good result auc = 0.875
+## the closer it is to 1 - the better
+## Next revise model for a better fit, extract Titles and analyze cabin/tix information
+## then apply our better model to original test set
 
 
 rm(list = ls())
