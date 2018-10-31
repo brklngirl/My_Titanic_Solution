@@ -129,6 +129,11 @@ ggplot(filter(titanic.full, is.na(Embarked) == F & Embarked != '' & Pclass ==1),
   ggtitle("Fare distribution among 1st Class passengers") +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5))
+<<<<<<< HEAD
+=======
+
+titanic.full[titanic.full$Embarked == '', "Embarked"] <- 'S'
+>>>>>>> 02a93e677466fa3e1199e627bf6bffb042bf474e
 
 ## according to our boxplot, passengers from S port paid on avg $50,
 ## while passengers from C did pay about $80 as our ladies did, so we use this info to  fill blanks
