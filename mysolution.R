@@ -129,11 +129,6 @@ ggplot(filter(titanic.full, is.na(Embarked) == F & Embarked != '' & Pclass ==1),
   ggtitle("Fare distribution among 1st Class passengers") +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5))
-<<<<<<< HEAD
-=======
-
-titanic.full[titanic.full$Embarked == '', "Embarked"] <- 'S'
->>>>>>> 02a93e677466fa3e1199e627bf6bffb042bf474e
 
 ## according to our boxplot, passengers from S port paid on avg $50,
 ## while passengers from C did pay about $80 as our ladies did, so we use this info to  fill blanks
@@ -180,9 +175,16 @@ titanic.full$Age <- imputed.age
 ##if now we make a table(is.na(titanic.full$Age)) we should not have any missing values
 table(is.na(titanic.full$Age))
 
-
-## let's check if any gender got luckier a surviving
+## let's check if any gender had better chances at survival
 table(titanic.train$Sex, titanic.train$Survived)
+
+## I want to see if there is a difference btw sex survival by different Pclass
+ggplot(titanic.full, aes(x = Pclass, y = Survived)) +
+  geom_bar(aes(fill = factor(Sex)), stat = "identity", position="fill") +
+  ggtitle("Difference between gender survival by PClass") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+  
 
 ## let's find out if certain cabin class passengers got more chance of surviving
 ## would like to see it as proportions? just a thought for a future
