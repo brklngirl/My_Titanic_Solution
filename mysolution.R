@@ -67,26 +67,69 @@ table(titanic.full$IsTrainSet)
 str(titanic.full)
 
 ## There are plenty of NA's
-colSums(is.na(titanic.train))
+colSums(is.na(titanic.train) | titanic.train == '')
 ## in train set the only column contains NA is Age, 177 missing values
 
 ## lets check test set
-colSums(is.na(titanic.test))
-## Missing 86 values in Age, 1 in Fare
+colSums(is.na(titanic.test) | titanic.test == '')
 
-### install.packages("tidyverse", dependencies = TRUE)
-### install.packages("ggplot2")
-### library(ggplot2)
+## let's combine those results, because when we will fill na's we will do it for the whole data frame anyways
+colSums(is.na(titanic.full) | titanic.full == '')
 
-## lets make a table of Embarked column as an example, it didn't show any missing values there,
-## but showed 4 levels while it should be 3
-table(titanic.full$Embarked)
+## Cabin has the most NA's (1014), then Age (263), Emb and Fare have 2 and 1 NA respectively
+## missmap function from Amelia package will visualize our missing values
+install.packages("Amelia")
+library("Amelia")
+missmap(titanic.full, main = "Titanic Dataset - Missing Value", col = c("green", "black"), legend = F)
 
-## Next I want to query just an Embarked column of a titanic.full
+## from this chart we can see that Age is stored as NA's (= populated), while Cabin was not populated
+## thus stored as missing values 
+
+## Next step, we will try and fill missing values
+## we'll beging with missing Fare - only one value
+## Let's extract all date for that missing value (using filter() from dplyr package)
+install.packages("dplyr")
+library("dplyr")
+filter(titanic.full, is.na(titanic.full$Fare)==T)
+
+## this is a male passenger from 3rd class, who embarked in a port S
+## we want to see what is a typical Fare was paid by similar passengers
+install.packages("ggplot2")
+library("ggplot2")
+
+ggplot(filter(titanic.full, Pclass==3 & Embarked=="S"), aes(Fare)) +
+  geom_density(fill = "blue", alpha = 0.5) + 
+  geom_vline(aes(xintercept = median(Fare, na.rm = T)), colour = "darkblue", linetype = "dashed", size =2) + 
+  geom_vline(aes(xintercept = mean(Fare, na.rm = T)), colour = "red", linetype = "dashed", size =2) +
+  ggtitle(("Fare distribution of 3rd class passengers embarked in Southampton")) + 
+  theme_bw() + 
+  theme(plot.title = element_text(hjust = 0.5))
+
+## the mean and median are very different, hovewer, we can see that majority of people
+## who fit our criteria (a huge spike) paid meadian value; so we 'll go with it
+
+titanic.full$Fare[is.na(titanic.full$Fare == T)] = median(filter(titanic.full, Pclass ==3 & Embarked == "S")$Fare, na.rm =T)
+  
+## Next I want to query just a missing Embarked values of a titanic.full
 ## so I want to filter all the Embarked that is NA , and i want only the Embarked column to come back
 ## based on a table that we built previously for Embarked column, there are 2 such values
+filter(titanic.full, Embarked == "NA" | Embarked == '')
 
-## now we want to replace them with something, let's for now do the most frequent value (or median)
+## both missing values belong to 2 ladies in 1st class with the same ticket number and cabin, @ Fare = $80
+## now we want to replace them with something
+## let's see the frequency of embarkation at each port by passengers of Pclass 1
+table(filter(titanic.full, Pclass == 1)$Embarked)
+
+## While Southhampton is the most frequent, Cherbourg is not that far down from it
+## Let's confirm, that people at which port have paid a Fare close to what our ladies paid
+
+ggplot(filter(titanic.full, is.na(Embarked) == F & Embarked != '' & Pclass ==1), aes(Embarked, Fare)) +
+  geom_boxplot(aes(colour = Embarked)) +
+  geom_hline(aes(yintercept =80), colour = 'red', linetype = 'dashed', size =2) +
+  ggtitle("Fare distribution among 1st Class passengers") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
 titanic.full[titanic.full$Embarked == '', "Embarked"] <- 'S'
 
 ##So to check, we run table() again, blank values should be replaced with S
@@ -161,7 +204,7 @@ TL <- levels(titanic.full$Title)
 table(titanic.full$Title, titanic.full$Age_Group) 
 table(titanic.full$Title, titanic.full$Sex)
 
-##No we will group outliers among titles into "other" group, and similar ones into the larger buckets
+##Now we will group outliers among titles into "other" group, and similar ones into the larger buckets
 levels(titanic.full$Title) <- ifelse(TL %in%  c("Don.", "Jonkheer.", "Major.", "Sir.", "Rev.", "Capt.", "Dona.", "Col.", "Countess.", "Dr."), "Other", 
                                      ifelse(TL %in% c("Lady.", "Ms.", "Mme."), "Mrs.",
                                             ifelse(TL == "Mlle.", "Miss.", TL)))
@@ -177,7 +220,7 @@ train <- titanic.full[c(2,3, 5, 6, 12, 14, 15, 16, 19)]
 train.fit <- train[1:700,]
 train.test <- train[701:891,]
 
-## now we recreate a model
+## now we create a model
 model <- glm(Survived ~ ., family = binomial(link='logit'), data = train.fit )
 
 ## by using summary() we obtain results of our model
@@ -188,7 +231,7 @@ anova(model, test = "Chisq")
 
 ## Now we are going to assess the predictive ability of our model
 fitted.res <- predict(model, newdata = subset(train.test, type = 'response')) 
-fitted.res <- ifelse(fitted.res > 0.5,1,0)
+fitted.res <- ifelse(fitted.res > 0.4,1,0)
 
 accur <- mean(fitted.res != train.test$Survived)
 print(paste('Accuracy',1-accur))
@@ -216,8 +259,22 @@ auc
 ## we got pretty good result auc = 0.9156
 ## the closer it is to 1 - the better
 
-## Next, we will analyze cabin/tix information
-## then apply our better model to original test set
+## now we will use our model on an original test set
+train.fit <- train[1:891,]
+train.test <- train[892:1309,]
+
+## now we recreate a model
+model <- glm(Survived ~ ., family = binomial(link='logit'), data = train.fit )
+summary(model)
+anova(model, test = "Chisq")
+
+
+p <- predict(model, newdata = subset(train.test, select = c(2, 3, 4, 5, 6, 7, 8, 9)), type = "response")
+pr <- prediction(p, train.test$Survived)
+
+
+
+
 
 
 rm(list = ls())
