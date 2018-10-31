@@ -130,43 +130,51 @@ ggplot(filter(titanic.full, is.na(Embarked) == F & Embarked != '' & Pclass ==1),
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5))
 
-titanic.full[titanic.full$Embarked == '', "Embarked"] <- 'S'
+## according to our boxplot, passengers from S port paid on avg $50,
+## while passengers from C did pay about $80 as our ladies did, so we use this info to  fill blanks
 
-##So to check, we run table() again, blank values should be replaced with S
+titanic.full$Embarked[titanic.full$Embarked == ''] <- "C"
+
+##So to check, we run table() again, blank values should be replaced
 table(titanic.full$Embarked)
 
-##Let's check Age column, if it has a lot of missing values
-table(is.na(titanic.full$Age))
+## Now we'll get to studying Age data
+## let's see if there is any difference in age between different Pclasses
 
-## it may be helpful to find median of both datasets as well as a global one
-## lets query full dataset for Age and replace with something - median right now
+ggplot(titanic.full, aes(Pclass, Age)) +
+  geom_boxplot(aes(fill=factor(Pclass), alpha = 0.5)) +
+  ggtitle("Age distribution within Pclasses") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
 
-age.median <- median(titanic.full$Age, na.rm = T)
-train.age.median <- median(titanic.train$Age, na.rm = T)
-test.age.median <-median(titanic.test$Age, na.rm = T)
+## Based on that chart, we can see that passengers in higher classes tend to be older
+## Thus we want to fill NA's for each class based on avg value of that class
 
-print(train.age.median)
-print(test.age.median)
-print(age.median)
-
-titanic.full[is.na(titanic.full$Age), "Age"] <- age.median
-
-### titanic.train$Age[is.na(titanic.train$Age)] <- train.age.median
-### titanic.test$Age[is.na(titanic.test$Age)] <- test.age.median
+impute.age <- function (age, class) {
+  vector <- age
+  
+  for ( i in 1:length(age)) {
+    if(is.na(age[i])) {
+      if(class[i]==1) {
+        vector[i] <- round(mean(filter(titanic.full, Pclass == 1)$Age, na.rm =T), 0)
+      } else if (class[i]==2) {
+        vector[i] <- round(mean(filter(titanic.full, Pclass == 2)$Age, na.rm =T), 0)
+    } else {
+      vector[i] <- round(mean(filter(titanic.full, Pclass == 3)$Age, na.rm =T), 0)
+  } 
+    } else {
+  vector[i] <- age[i]
+    }
+  } 
+  return(vector)
+}
+  
+imputed.age <- impute.age(titanic.full$Age, titanic.full$Pclass)
+titanic.full$Age <- imputed.age
 
 ##if now we make a table(is.na(titanic.full$Age)) we should not have any missing values
+table(is.na(titanic.full$Age))
 
-## Lets check Fare column
-table(is.na(titanic.full$Fare))
-
-## Since we have only 1 missing value, Lets fill it in quickly with median as well; 
-## in a future we need to address some $0 fares as well 
-
-fare.median <- median(titanic.full$Fare, na.rm = T)
-titanic.full[is.na(titanic.full$Fare), "Fare"] <- fare.median
-
-## Lets check Fare column again, to see that missing value was filled
-table(is.na(titanic.full$Fare))
 
 ## let's check if any gender got luckier a surviving
 table(titanic.train$Sex, titanic.train$Survived)
