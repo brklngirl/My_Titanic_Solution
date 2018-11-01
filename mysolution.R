@@ -179,13 +179,29 @@ table(is.na(titanic.full$Age))
 table(titanic.train$Sex, titanic.train$Survived)
 
 ## I want to see if there is a difference btw sex survival by different Pclass
+install.packages("scales")
+install.packages("dplyr")
+library("scales")
+library("dplyr")
+
 ggplot(titanic.full, aes(x = Pclass, y = Survived)) +
   geom_bar(aes(fill = factor(Sex)), stat = "identity", position="fill") +
   ggtitle("Difference between gender survival by PClass") +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5))
   
+### Some day I will add lables there too :)
 
+## We can see visually from our stacked barplot that more females than males srvvd in all Pclasses 
+## However, we want to see, what share of all F/M in each Pclass actually survived
+
+
+ggplot(filter(titanic.full, !is.na(Survived)), aes(x= Sex, y = Survived/count(Survived), group = factor(Pclass))) +
+  geom_bar(aes(fill = factor(Pclass)), stat = "identity", position = "fill") +
+  geom_point(aes(color = factor(Pclass)))
+
+
+  
 ## let's find out if certain cabin class passengers got more chance of surviving
 ## would like to see it as proportions? just a thought for a future
 table (titanic.train$Pclass, titanic.train$Survived)
