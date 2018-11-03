@@ -107,9 +107,22 @@ ggplot(filter(titanic.full, Pclass==3 & Embarked=="S"), aes(Fare)) +
 
 ## the mean and median are very different, hovewer, we can see that majority of people
 ## who fit our criteria (a huge spike) paid meadian value; so we 'll go with it
-
 titanic.full$Fare[is.na(titanic.full$Fare == T)] = median(filter(titanic.full, Pclass ==3 & Embarked == "S")$Fare, na.rm =T)
-  
+
+## I also want to check that there are no abnormalities among Fare values
+summary(titanic.full$Fare)  
+
+## We see that some rows indicate a Fare value = 0, let's see further
+filter(titanic.full, Fare == 0)
+
+## there are 17 instances, all are male btw 19 -40 y.o, mostly 36-40, traveling alone, emb in Southhampton
+## 2 are from train set, among others only one person survived
+## we will leave it as is for now
+
+
+
+
+
 ## Next I want to query just a missing Embarked values of a titanic.full
 ## so I want to filter all the Embarked that is NA , and i want only the Embarked column to come back
 ## based on a table that we built previously for Embarked column, there are 2 such values
@@ -139,6 +152,8 @@ titanic.full$Embarked[titanic.full$Embarked == ''] <- "C"
 table(titanic.full$Embarked)
 
 ## Now we'll get to studying Age data
+summary(titanic.full$Age)
+
 ## let's see if there is any difference in age between different Pclasses
 
 ggplot(titanic.full, aes(Pclass, Age)) +
@@ -178,6 +193,11 @@ table(is.na(titanic.full$Age))
 ## let's check if any gender had better chances at survival
 table(titanic.train$Sex, titanic.train$Survived)
 
+
+## let's find out if certain cabin class passengers got more chance of surviving
+## would like to see it as proportions? just a thought for a future
+prop.table(table(titanic.train$Pclass, titanic.train$Survived))
+
 ## I want to see if there is a difference btw sex survival by different Pclass
 install.packages("scales")
 install.packages("dplyr")
@@ -203,26 +223,32 @@ aggregate(Survived ~ Pclass + Sex, data = titanic.full,FUN = function(x) {sum(x)
 ## Thus, 97%, 92% and 50% of female srvvd in each respective Pclass,
 ## versus 37%, 16%, 13% for male passengers
 
-
-
-## let's find out if certain cabin class passengers got more chance of surviving
-## would like to see it as proportions? just a thought for a future
-table (titanic.train$Pclass, titanic.train$Survived)
-
 ## Females had a better chance at surviving, in any cabin class, less so in 3rd cabin class
 ## equal amount of woment perished/survived in 3rd cabin class;
-## so males had a smaller chance of survival anywhere, particuarly in 3rd class cabins
-## Number of male survived in 1st cabin class is roughly half the amount of those who perished
+## while males had a worse chances of survival, particuarly in 3rd class cabins
+
+## ---Feature Engineering---
 
 ## Next we'll create a column for famil size
 titanic.full$FamSize <- 1 + titanic.full$SibSp + titanic.full$Parch
 titanic.full$Is_Alone <- ifelse(titanic.full$FamSize == 1, 1, 0)
 
-## next we'll create Age groups
-titanic.full$Age_Group <- ifelse(titanic.full$Age < 17, "Child",
+table(titanic.full$FamSize)
+
+## More than half of passengers are traveling alone, biggest family has 11 members
+## we will group them together
+titanic.full$FamGroup <- ifelse(titanic.full$FamSize == 1, "Alone", ifelse(titanic.full$FamSize <= 4, "Medium", "Large"))
+
+## next we'll create Age groups, considering child turns adult when reaches 18 y.o
+titanic.full$Age_Group <- ifelse(titanic.full$Age < 18, "Child",
                                  ifelse(titanic.full$Age < 40, "Young Adult", 
                                  ifelse(titanic.full$Age < 60, "Adult", "Senior")))
 titanic.full$Is_Child <- ifelse(titanic.full$Age_Group == "Child", 1, 0)
+
+aggregate(Survived ~ Age_Group + Sex, data = titanic.full, FUN = sum) 
+aggregate(Survived ~ Age_Group + Sex, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+## all senior females survived
+
 
 titanic.full$Is_Child_or_Woman <- ifelse(titanic.full$Age_Group == "Child"| titanic.full$Sex == "female", 1, 0)
 
@@ -232,18 +258,17 @@ titanic.full$Title <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern =
 ## To see how many different titles we have, we need to convert our new column to factors
 titanic.full$Title <- as.factor(titanic.full$Title)
 
-## Lets see how many different titles there are, ad check for validity 
+## Lets see how many different titles there are, and check for validity 
 str(titanic.full$Title)
-TL <- levels(titanic.full$Title)
-table(titanic.full$Title, titanic.full$Age_Group) 
 table(titanic.full$Title, titanic.full$Sex)
 
 ##Now we will group outliers among titles into "other" group, and similar ones into the larger buckets
-levels(titanic.full$Title) <- ifelse(TL %in%  c("Don.", "Jonkheer.", "Major.", "Sir.", "Rev.", "Capt.", "Dona.", "Col.", "Countess.", "Dr."), "Other", 
-                                     ifelse(TL %in% c("Lady.", "Ms.", "Mme."), "Mrs.",
-                                            ifelse(TL == "Mlle.", "Miss.", TL)))
+TL <- levels(titanic.full$Title)
+levels(titanic.full$Title) <- ifelse(TL %in%  c("Don.", "Jonkheer.", "Major.", "Sir.", "Rev.", "Capt.", "Col."), "Mr.",
+                                     ifelse(TL %in% c("Dona.", "Countess.", "Lady.", "Mme."), "Mrs.",
+                                            ifelse(TL %in% c("Ms.", "Mlle."), "Miss.", TL)))
 
-## Let's check, if we got the desired large groups of Titles
+## Let's check, if we got the desired large groups of Title
 table(titanic.full$Title, titanic.full$Sex)
 
 ## we select only columns from train set that we think wecan use in our model
