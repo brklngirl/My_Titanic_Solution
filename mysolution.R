@@ -193,15 +193,18 @@ ggplot(titanic.full, aes(x = Pclass, y = Survived)) +
 ### Some day I will add lables there too :)
 
 ## We can see visually from our stacked barplot that more females than males srvvd in all Pclasses 
-## However, we want to see, what share of all F/M in each Pclass actually survived
-
-
-ggplot(filter(titanic.full, !is.na(Survived)), aes(x= Sex, y = Survived/count(Survived), group = factor(Pclass))) +
-  geom_bar(aes(fill = factor(Pclass)), stat = "identity", position = "fill") +
+ggplot(filter(titanic.full, !is.na(Survived)), aes(x= Sex, y = Survived, group = factor(Pclass))) +
+  geom_bar(aes(fill = factor(Pclass)), stat = "identity", position = "stack") +
   geom_point(aes(color = factor(Pclass)))
 
+## However, we want to see, what share of all F/M in each Pclass actually survived
+aggregate(Survived ~ Pclass + Sex, data = titanic.full,FUN = function(x) {sum(x) /length (x)})
 
-  
+## Thus, 97%, 92% and 50% of female srvvd in each respective Pclass,
+## versus 37%, 16%, 13% for male passengers
+
+
+
 ## let's find out if certain cabin class passengers got more chance of surviving
 ## would like to see it as proportions? just a thought for a future
 table (titanic.train$Pclass, titanic.train$Survived)
