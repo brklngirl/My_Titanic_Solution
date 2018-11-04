@@ -249,9 +249,31 @@ aggregate(Survived ~ Age_Group + Sex, data = titanic.full, FUN = sum)
 aggregate(Survived ~ Age_Group + Sex, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 ## all senior females survived
 
-
 titanic.full$Is_Child_or_Woman <- ifelse(titanic.full$Age_Group == "Child"| titanic.full$Sex == "female", 1, 0)
 
+## Let's dig dipper into fare
+ggplot(filter(titanic.full, Fare <=160), aes(Pclass, Fare)) +
+  geom_boxplot(aes(fill=factor(Pclass), alpha = 0.7)) +
+  ggtitle("Fare distribution within Pclasses") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+## based on the chart above we will break down our people into groups by Fare they paid
+titanic.full$FareGroup <- ifelse(titanic.full$Fare <=15, "cheap", 
+                                 ifelse(titanic.full$Fare <= 33, "Below Median", 
+                                        ifelse(titanic.full$Fare <= 80, "Above Median", "Expensive") ) )
+
+prop.table(table(titanic.full$FareGroup, titanic.full$Survived), margin = 1)
+## 94% of people with Fare less than $6 perished, but this doesnt give us any new info, 
+## since these are probably passengers who have a $0 fare
+## so we adjuatsed "cheap" group to incl all fares below $15
+## thus, 75% of people in that group perished, from people who paid $16-$80, chance are appx. equal,
+## expensive tix (above $81 had 77% of survival)
+
+aggregate(Survived ~ FareGroup + Pclass, data = titanic.full, FUN = sum)
+aggregate(Survived ~ FareGroup + Pclass, data = titanic.full, FUN = function(x){sum(x) / length(x)})
+
+## Now we'll extract titles from name column
 titanic.full$Title <- NA
 titanic.full$Title <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern = "[[:alpha:]]+\\.", text = titanic.full$Name))) 
 
@@ -275,7 +297,7 @@ table(titanic.full$Title, titanic.full$Sex)
 ## then we split our new dataset into two chunks, one to create a model
 ## and then test it on a train set
 
-train <- titanic.full[c(2,3, 5, 6, 12, 14, 15, 16, 19)]
+train <- titanic.full[c(2,3, 5, 6,10, 12, 14, 15, 16, 17, 20)]
 train.fit <- train[1:700,]
 train.test <- train[701:891,]
 
