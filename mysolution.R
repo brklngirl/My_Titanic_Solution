@@ -206,9 +206,12 @@ library("dplyr")
 
 ggplot(titanic.full, aes(x = Pclass, y = Survived)) +
   geom_bar(aes(fill = factor(Sex)), stat = "identity", position="fill") +
+  scale_y_continuous(labels = percent, breaks = seq(0, 1, 0.1)) +
+  ylab("Percentage") +
   ggtitle("Difference between gender survival by PClass") +
   theme_bw() +
-  theme(plot.title = element_text(hjust = 0.5))
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
   
 ### Some day I will add lables there too :)
 
@@ -231,7 +234,7 @@ aggregate(Survived ~ Pclass + Sex, data = titanic.full,FUN = function(x) {sum(x)
 
 ## Next we'll create a column for famil size
 titanic.full$FamSize <- 1 + titanic.full$SibSp + titanic.full$Parch
-titanic.full$Is_Alone <- ifelse(titanic.full$FamSize == 1, 1, 0)
+## no need: titanic.full$Is_Alone <- ifelse(titanic.full$FamSize == 1, 1, 0)
 
 table(titanic.full$FamSize)
 
@@ -243,17 +246,17 @@ titanic.full$FamGroup <- ifelse(titanic.full$FamSize == 1, "Alone", ifelse(titan
 titanic.full$Age_Group <- ifelse(titanic.full$Age < 18, "Child",
                                  ifelse(titanic.full$Age < 40, "Young Adult", 
                                  ifelse(titanic.full$Age < 60, "Adult", "Senior")))
-titanic.full$Is_Child <- ifelse(titanic.full$Age_Group == "Child", 1, 0)
+## no need: titanic.full$Is_Child <- ifelse(titanic.full$Age_Group == "Child", 1, 0)
 
 aggregate(Survived ~ Age_Group + Sex, data = titanic.full, FUN = sum) 
 aggregate(Survived ~ Age_Group + Sex, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 ## all senior females survived
 
-titanic.full$Is_Child_or_Woman <- ifelse(titanic.full$Age_Group == "Child"| titanic.full$Sex == "female", 1, 0)
+## no need: titanic.full$Is_Child_or_Woman <- ifelse(titanic.full$Age_Group == "Child"| titanic.full$Sex == "female", 1, 0)
 
-## Let's dig dipper into fare
+## Let's dig dipper into fare (EDA)
 ggplot(filter(titanic.full, Fare <=160), aes(Pclass, Fare)) +
-  geom_boxplot(aes(fill=factor(Pclass), alpha = 0.7)) +
+  geom_boxplot(aes(fill=factor(Pclass), alpha = 0.5)) +
   ggtitle("Fare distribution within Pclasses") +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5))
@@ -293,11 +296,41 @@ levels(titanic.full$Title) <- ifelse(TL %in%  c("Don.", "Jonkheer.", "Major.", "
 ## Let's check, if we got the desired large groups of Title
 table(titanic.full$Title, titanic.full$Sex)
 
-## we select only columns from train set that we think wecan use in our model
+mosaicplot(~Title + Survived, data = titanic.full, main = "Survival rate based on Title", shade = T)
+
+ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
+  geom_bar(aes(fill = factor(Survived)), alpha = 0.9, position = "fill") +
+  facet_wrap(~Pclass) +
+  scale_fill_brewer(palette = "Set1") +
+  scale_y_continuous(labels=percent, breaks=seq(0,1,0.1)) +
+  ylab("Percentage") + 
+  ggtitle("Survival Rate based on Pclass and Title") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+## Ttitle Mr. has the worst survival rate among all titles 
+
+mosaicplot(~FamGroup + Survived, data = titanic.full, main = "Survival rate based on Family Size", shade = T)
+
+ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
+  geom_bar(aes(fill = factor(Survived)), alpha = 0.9, position = "fill") +
+  facet_wrap(~FamGroup) +
+  scale_fill_brewer(palette = "Set1") +
+  scale_y_continuous(labels=percent, breaks=seq(0,1,0.1)) +
+  ylab("Percentage") + 
+  ggtitle("Survival Rate based on Family Size and Title") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+## Large Families have the wprst survival rates for all titles
+
+## we select only columns from train set that we think we can use in our model
 ## then we split our new dataset into two chunks, one to create a model
 ## and then test it on a train set
 
-train <- titanic.full[c(2,3, 5, 6,10, 12, 14, 15, 16, 17, 20)]
+train <- titanic.full[c(2,3, 5, 6, 12, 16, 17, 20, 21)]
 train.fit <- train[1:700,]
 train.test <- train[701:891,]
 
