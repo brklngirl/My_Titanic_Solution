@@ -324,18 +324,20 @@ ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-## Large Families have the wprst survival rates for all titles
+## Large Families have the worst survival rates for all titles
 
 ## we select only columns from train set that we think we can use in our model
 ## then we split our new dataset into two chunks, one to create a model
 ## and then test it on a train set
 
 train <- titanic.full[c(2,3, 5, 6, 12, 16, 17, 20, 21)]
-train.fit <- train[1:700,]
-train.test <- train[701:891,]
+fit <- train[1:700,]
+test <- train[701:891,]
 
 ## now we create a model
-model <- glm(Survived ~ ., family = binomial(link='logit'), data = train.fit )
+model <- glm(Survived ~ ., family = binomial(link='logit'), data = fit )
+
+step(model)
 
 ## by using summary() we obtain results of our model
 summary(model)
@@ -344,11 +346,13 @@ summary(model)
 anova(model, test = "Chisq")
 
 ## Now we are going to assess the predictive ability of our model
-fitted.res <- predict(model, newdata = subset(train.test, type = 'response')) 
-fitted.res <- ifelse(fitted.res > 0.4,1,0)
+prob_pred <- predict(model, newdata = test, type = 'response') 
+y_pred <- ifelse(prob_pred > 0.5,1,0)
 
-accur <- mean(fitted.res != train.test$Survived)
-print(paste('Accuracy',1-accur))
+table(test$Survived, y_pred >0.5) ## confusion matrix
+
+error <- mean(y_pred != test$Survived) ## missclasification error
+paste('Accuracy', round(1 - error, 4)) ## 
 
 ## However, keep in mind that this result is somewhat dependent on the manual split of the data 
 ## that I made earlier, therefore if you wish for a more precise score, 
@@ -361,34 +365,18 @@ print(paste('Accuracy',1-accur))
 
 install.packages("ROCR")
 library("ROCR")
-p <- predict(model, newdata = subset(train.test, select = c(2, 3, 4, 5, 6, 7, 8, 9)), type = "response")
-pr <- prediction(p, train.test$Survived)
+fit_pred <- prediction(prob_pred, test$Survived)
+fit_perf <- performance(fit_pred, "tpr", "fpr")
+plot(fit_perf, col = "green", lwd =2, main = "ROC Curve")
+abline(a=0, b=1, lwd = 2, lty =2, col = "grey")
 
-prf <- performance(pr, measure = "tpr", x.measure = "fpr")
-plot(prf)
-
-auc <- performance(pr, measure = "auc")
+auc <- performance(fit_pred, "auc")
 auc <- auc@y.values[[1]]
-auc
-## we got pretty good result auc = 0.9156
+
+round(auc, 4)
+
+## we got pretty good result auc = 0.9097
 ## the closer it is to 1 - the better
-
-## now we will use our model on an original test set
-train.fit <- train[1:891,]
-train.test <- train[892:1309,]
-
-## now we recreate a model
-model <- glm(Survived ~ ., family = binomial(link='logit'), data = train.fit )
-summary(model)
-anova(model, test = "Chisq")
-
-
-p <- predict(model, newdata = subset(train.test, select = c(2, 3, 4, 5, 6, 7, 8, 9)), type = "response")
-pr <- prediction(p, train.test$Survived)
-
-
-
-
 
 
 rm(list = ls())
