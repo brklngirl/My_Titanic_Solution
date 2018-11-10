@@ -380,7 +380,8 @@ round(auc, 4)
 ## the closer it is to 1 - the better
 
 ##  now we predict test set results
-y_pred <- predict(model, newdata = test_og)
+prob_pred <- predict(model, newdata = test_og)
+y_pred <-ifelse(prob_pred > 0.5, 1, 0)
 results <- data.frame(PassengerID = c(892:1309), Survived = y_pred)
 write.csv(results, file = "TitanicGlmPrediction.csv", row.names = F, quote = F)
 
