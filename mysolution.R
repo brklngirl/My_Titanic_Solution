@@ -233,18 +233,25 @@ aggregate(Survived ~ Pclass + Sex, data = titanic.full,FUN = function(x) {sum(x)
 ## ---Feature Engineering---
 
 ## Next we'll create a column for famil size
-titanic.full$FamSize <- 1 + titanic.full$SibSp + titanic.full$Parch
-table(titanic.full$FamSize)
+titanic.full$Himself <- 1
+titanic.full$Family <- titanic.full$SibSp + titanic.full$Parch + titanic.full$Himself
+table(titanic.full$Family)
 
 ## More than half of passengers are traveling alone, biggest family has 11 members
 ## we will group them together
-titanic.full$FamGroup <- ifelse(titanic.full$FamSize == 1, "Alone", ifelse(titanic.full$FamSize <= 4, "Medium", "Large"))
+titanic.full$FamGroup <- ifelse(titanic.full$Family == 1, "Alone", ifelse(titanic.full$Family <= 4, "Medium", "Large"))
 
 ## I want to add a column to see how many people could travel together on the same ticket #
 ## assuming sometimes a group of friends could travel together
 
 titanic.full$Tix <- gsub("[.|/]","",titanic.full$Ticket) 
-titanic.full$TravelGroup <- ave(titanic.full$PassengerId, titanic.full[, "Tix"], FUN=length)
+titanic.full$SameTix <- ave(titanic.full$PassengerId, titanic.full[, "Tix"], FUN=length)
+titanic.full$Companion <- abs(titanic.full$Family - titanic.full$SameTix)
+
+titanic.full$TravelGroup <- titanic.full$Family + titanic.full$Companion
+
+summary(titanic.full$TravelGroup)
+table(titanic.full$TravelGroup)
 
 ## interestingly, Fare seems to indicate amount paid per ticket, not per person
 ## thus, if 5 people travel together, Fare is a what was paid for them alltogether
