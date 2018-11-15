@@ -234,37 +234,50 @@ aggregate(Survived ~ Pclass + Sex, data = titanic.full,FUN = function(x) {sum(x)
 
 ## Next we'll create a column for famil size
 titanic.full$FamSize <- 1 + titanic.full$SibSp + titanic.full$Parch
-## no need: titanic.full$Is_Alone <- ifelse(titanic.full$FamSize == 1, 1, 0)
-
 table(titanic.full$FamSize)
 
 ## More than half of passengers are traveling alone, biggest family has 11 members
 ## we will group them together
 titanic.full$FamGroup <- ifelse(titanic.full$FamSize == 1, "Alone", ifelse(titanic.full$FamSize <= 4, "Medium", "Large"))
 
-## next we'll create Age groups, considering child turns adult when reaches 18 y.o
-titanic.full$Age_Group <- ifelse(titanic.full$Age < 18, "Child",
-                                 ifelse(titanic.full$Age < 40, "Young Adult", 
-                                 ifelse(titanic.full$Age < 60, "Adult", "Senior")))
-## no need: titanic.full$Is_Child <- ifelse(titanic.full$Age_Group == "Child", 1, 0)
+## I want to add a column to see how many people could travel together on the same ticket #
+## assuming sometimes a group of friends could travel together
 
-aggregate(Survived ~ Age_Group + Sex, data = titanic.full, FUN = sum) 
-aggregate(Survived ~ Age_Group + Sex, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
-## all senior females survived
+titanic.full$Tix <- gsub("[.|/]","",titanic.full$Ticket) 
+titanic.full$TravelGroup <- ave(titanic.full$PassengerId, titanic.full[, "Tix"], FUN=length)
 
-## no need: titanic.full$Is_Child_or_Woman <- ifelse(titanic.full$Age_Group == "Child"| titanic.full$Sex == "female", 1, 0)
+## interestingly, Fare seems to indicate amount paid per ticket, not per person
+## thus, if 5 people travel together, Fare is a what was paid for them alltogether
+## lets calculate Fare per Person
 
-## Let's dig dipper into fare (EDA)
-ggplot(filter(titanic.full, Fare <=160), aes(Pclass, Fare)) +
+titanic.full$FarePP <- titanic.full$Fare/titanic.full$TravelGroup
+summary(titanic.full$FarePP)
+
+ggplot(filter(titanic.full, FarePP <=60), aes(Pclass, FarePP)) +
   geom_boxplot(aes(fill=factor(Pclass), alpha = 0.5)) +
-  ggtitle("Fare distribution within Pclasses") +
+  facet_wrap(~Pclass) +
+  ggtitle("Fare Per Person distribution within Pclasses") +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5))
 
+aggregate(Survived ~ Pclass + FarePP, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+
+ggplot(titanic.full, aes(FarePP)) +
+  geom_density(fill = "blue", alpha = 0.5) + 
+  facet_wrap(~Pclass) +
+  geom_vline(aes(xintercept = 15), colour = "darkblue", linetype = "dashed", size =1) + 
+  geom_vline(aes(xintercept = 8), colour = "red", linetype = "dashed", size =1) +
+  ggtitle(("Fare per person distribution by class ")) + 
+  theme_bw() + 
+  theme(plot.title = element_text(hjust = 0.5))
+
 ## based on the chart above we will break down our people into groups by Fare they paid
-titanic.full$FareGroup <- ifelse(titanic.full$Fare <=15, "cheap", 
-                                 ifelse(titanic.full$Fare <= 33, "Below Median", 
-                                        ifelse(titanic.full$Fare <= 80, "Above Median", "Expensive") ) )
+titanic.full$FareGroup <- ifelse(titanic.full$FarePP ==0, "Free", 
+                                 ifelse(titanic.full$FarePP <= 8, "1-8",
+                                 ifelse(titanic.full$FarePP <= 16, "9-16", 
+                                 ifelse(titanic.full$FarePP <= 24, "17-24", 
+                                 ifelse(titanic.full$FarePP <= 30, "25-30", 
+                                        ifelse(titanic.full$FarePP <= 60, "31-60","Outlier") ) ))))
 
 prop.table(table(titanic.full$FareGroup, titanic.full$Survived), margin = 1)
 ## 94% of people with Fare less than $6 perished, but this doesnt give us any new info, 
@@ -275,6 +288,21 @@ prop.table(table(titanic.full$FareGroup, titanic.full$Survived), margin = 1)
 
 aggregate(Survived ~ FareGroup + Pclass, data = titanic.full, FUN = sum)
 aggregate(Survived ~ FareGroup + Pclass, data = titanic.full, FUN = function(x){sum(x) / length(x)})
+
+## next we'll create Age groups, considering child turns adult when reaches 18 y.o
+titanic.full$Age <- ifelse(titanic.full$Age <= 1, 1, round(titanic.full$Age, 0))
+
+titanic.full$Age_Group <- ifelse(titanic.full$Age <=9, 1,
+                                 ifelse(titanic.full$Age <= 18, 2, 
+                                        ifelse(titanic.full$Age <= 27, 3, 
+                                               ifelse(titanic.full$Age <= 36, 4, 
+                                                      ifelse(titanic.full$Age <= 45, 5, 
+                                                             ifelse(titanic.full$Age <= 54, 6, 
+                                                                    ifelse(titanic.full$Age <= 60, 7, 8)))))))
+
+aggregate(Survived ~ Age_Group + Sex, data = titanic.full, FUN = sum) 
+aggregate(Survived ~ Age_Group + Sex, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+## all senior females survived
 
 ## Now we'll extract titles from name column
 titanic.full$Title <- NA
@@ -330,7 +358,7 @@ ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
 ## then we split our new dataset into two chunks, one to create a model
 ## and then test it on a train set
 
-train <- titanic.full[c(2,3, 5, 6, 12, 16, 17, 20, 21)]
+train <- titanic.full[c(2,3, 5, 6, 12, 15, 16, 17, 18, 19)]
 fit <- train[1:700,]
 test <- train[701:891,]
 
@@ -376,13 +404,14 @@ auc <- auc@y.values[[1]]
 
 round(auc, 4)
 
-## we got pretty good result auc = 0.9097
+## we got pretty good result auc = 0.9157
 ## the closer it is to 1 - the better
 
 ##  now we predict test set results
 prob_pred <- predict(model, newdata = test_og)
 y_pred <-ifelse(prob_pred > 0.5, 1, 0)
 results <- data.frame(PassengerID = c(892:1309), Survived = y_pred)
-write.csv(results, file = "TitanicGlmPrediction.csv", row.names = F, quote = F)
+write.csv(results, file = "TitanicGlmPrediction 09157.csv", row.names = F, quote = F)
 
 rm(list = ls())
+
