@@ -24,7 +24,6 @@
 setwd("C:/Users/Lenovo/Documents/R/R WD")
 
 ##read in some data; read.csv or read.table by default reads our columns as factors
-
 titanic.train <- read.csv(file = "train.csv", header = T, stringsAsFactors = F, na.strings = c(" "))
 titanic.test <- read.csv(file = "test.csv", header = T, stringsAsFactors = F,na.strings = c(" "))
 
@@ -120,9 +119,6 @@ filter(titanic.full, Fare == 0)
 ## we will leave it as is for now
 
 
-
-
-
 ## Next I want to query just a missing Embarked values of a titanic.full
 ## so I want to filter all the Embarked that is NA , and i want only the Embarked column to come back
 ## based on a table that we built previously for Embarked column, there are 2 such values
@@ -193,16 +189,13 @@ table(is.na(titanic.full$Age))
 ## let's check if any gender had better chances at survival
 table(titanic.train$Sex, titanic.train$Survived)
 
-
 ## let's find out if certain cabin class passengers got more chance of surviving
 ## would like to see it as proportions? just a thought for a future
 prop.table(table(titanic.train$Pclass, titanic.train$Survived))
 
 ## I want to see if there is a difference btw sex survival by different Pclass
 install.packages("scales")
-install.packages("dplyr")
 library("scales")
-library("dplyr")
 
 ggplot(titanic.full, aes(x = Pclass, y = Survived)) +
   geom_bar(aes(fill = factor(Sex)), stat = "identity", position="fill") +
@@ -226,15 +219,15 @@ aggregate(Survived ~ Pclass + Sex, data = titanic.full,FUN = function(x) {sum(x)
 ## Thus, 97%, 92% and 50% of female srvvd in each respective Pclass,
 ## versus 37%, 16%, 13% for male passengers
 
-## Females had a better chance at surviving, in any cabin class, less so in 3rd cabin class
-## equal amount of woment perished/survived in 3rd cabin class;
+## Females had a better chance at surviving, in any class, less so in 3rd class
+## equal amount of woment perished/survived in 3rd class;
 ## while males had a worse chances of survival, particuarly in 3rd class cabins
 
 ## ---Feature Engineering---
 
 ## Next we'll create a column for famil size
-titanic.full$Himself <- 1
-titanic.full$Family <- titanic.full$SibSp + titanic.full$Parch + titanic.full$Himself
+titanic.full$Oneself <- 1
+titanic.full$Family <- titanic.full$SibSp + titanic.full$Parch + titanic.full$Oneself
 table(titanic.full$Family)
 
 ## More than half of passengers are traveling alone, biggest family has 11 members
@@ -246,45 +239,32 @@ titanic.full$FamGroup <- ifelse(titanic.full$Family == 1, "Alone", ifelse(titani
 
 titanic.full$Tix <- gsub("[.|/]","",titanic.full$Ticket) 
 titanic.full$SameTix <- ave(titanic.full$PassengerId, titanic.full[, "Tix"], FUN=length)
-titanic.full$Companion <- abs(titanic.full$Family - titanic.full$SameTix)
+titanic.full$Friend <- ifelse(titanic.full$SameTix >= titanic.full$Family, titanic.full$SameTix - titanic.full$Family, 0)
 
-titanic.full$TravelGroup <- titanic.full$Family + titanic.full$Companion
 
-summary(titanic.full$TravelGroup)
+titanic.full$TravelGroup <- titanic.full$Family + titanic.full$Friend
 table(titanic.full$TravelGroup)
 
 ## interestingly, Fare seems to indicate amount paid per ticket, not per person
 ## thus, if 5 people travel together, Fare is a what was paid for them alltogether
 ## lets calculate Fare per Person
 
-titanic.full$FarePP <- titanic.full$Fare/titanic.full$TravelGroup
+titanic.full$FarePP <- titanic.full$Fare/titanic.full$SameTix
 summary(titanic.full$FarePP)
-
-ggplot(filter(titanic.full, FarePP <=60), aes(Pclass, FarePP)) +
-  geom_boxplot(aes(fill=factor(Pclass), alpha = 0.5)) +
-  facet_wrap(~Pclass) +
-  ggtitle("Fare Per Person distribution within Pclasses") +
-  theme_bw() +
-  theme(plot.title = element_text(hjust = 0.5))
 
 aggregate(Survived ~ Pclass + FarePP, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 
 ggplot(titanic.full, aes(FarePP)) +
   geom_density(fill = "blue", alpha = 0.5) + 
   facet_wrap(~Pclass) +
-  geom_vline(aes(xintercept = 15), colour = "darkblue", linetype = "dashed", size =1) + 
-  geom_vline(aes(xintercept = 8), colour = "red", linetype = "dashed", size =1) +
+  geom_vline(aes(xintercept = 21), colour = "darkblue", linetype = "dashed", size =1) + 
+  geom_vline(aes(xintercept = 10), colour = "red", linetype = "dashed", size =1) +
   ggtitle(("Fare per person distribution by class ")) + 
   theme_bw() + 
   theme(plot.title = element_text(hjust = 0.5))
 
 ## based on the chart above we will break down our people into groups by Fare they paid
-titanic.full$FareGroup <- ifelse(titanic.full$FarePP ==0, "Free", 
-                                 ifelse(titanic.full$FarePP <= 8, "1-8",
-                                 ifelse(titanic.full$FarePP <= 16, "9-16", 
-                                 ifelse(titanic.full$FarePP <= 24, "17-24", 
-                                 ifelse(titanic.full$FarePP <= 30, "25-30", 
-                                        ifelse(titanic.full$FarePP <= 60, "31-60","Outlier") ) ))))
+titanic.full$FareGroup <- cut(titanic.full$FarePP, 9)
 
 prop.table(table(titanic.full$FareGroup, titanic.full$Survived), margin = 1)
 ## 94% of people with Fare less than $6 perished, but this doesnt give us any new info, 
@@ -299,13 +279,7 @@ aggregate(Survived ~ FareGroup + Pclass, data = titanic.full, FUN = function(x){
 ## next we'll create Age groups, considering child turns adult when reaches 18 y.o
 titanic.full$Age <- ifelse(titanic.full$Age <= 1, 1, round(titanic.full$Age, 0))
 
-titanic.full$Age_Group <- ifelse(titanic.full$Age <=9, 1,
-                                 ifelse(titanic.full$Age <= 18, 2, 
-                                        ifelse(titanic.full$Age <= 27, 3, 
-                                               ifelse(titanic.full$Age <= 36, 4, 
-                                                      ifelse(titanic.full$Age <= 45, 5, 
-                                                             ifelse(titanic.full$Age <= 54, 6, 
-                                                                    ifelse(titanic.full$Age <= 60, 7, 8)))))))
+titanic.full$Age_Group <- cut(titanic.full$Age, 8)
 
 aggregate(Survived ~ Age_Group + Sex, data = titanic.full, FUN = sum) 
 aggregate(Survived ~ Age_Group + Sex, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
