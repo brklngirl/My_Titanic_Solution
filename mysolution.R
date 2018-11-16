@@ -334,6 +334,11 @@ ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
 
 ## Large Groups have the worst survival rates for all titles
 
+## lets research Cabin info
+titanic.full$Deck <- NA
+titanic.full$Deck <- factor(substr(titanic.full$Cabin, start =1, stop =1))
+table(titanic.full$Deck)
+
 ## we select only columns from train set that we think we can use in our model
 ## then we split our new dataset into two chunks, one to create a model
 ## and then test it on a train set
