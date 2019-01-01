@@ -232,8 +232,13 @@ table(titanic.full$Family)
 
 ## I want to add a column to see how many people could travel together on the same ticket #
 ## assuming sometimes a group of friends could travel together
-
 titanic.full$Tix <- gsub("[.|/]","",titanic.full$Ticket) 
+
+titanic.full$TixText <- NA
+titanic.full$TixNum <- NA
+titanic.full$TixText <- unlist(regmatches(x = titanic.full$Tix, regexpr(pattern = "[:alnum:]*\\.", text = titanic.full$Name)))
+titanic.full$TixNum <- unlist(regmatches(x = titanic.full$Tix, regexpr(pattern = "\\d", text = titanic.full$Name)))
+
 titanic.full$SameTix <- ave(titanic.full$PassengerId, titanic.full[, "Tix"], FUN=length)
 titanic.full$Friend <- ifelse(titanic.full$SameTix >= titanic.full$Family, titanic.full$SameTix - titanic.full$Family, 0)
 
@@ -250,6 +255,8 @@ mosaicplot(~Group + Survived, data = titanic.full, main = "Survival rate based o
 ## thus, if 5 people travel together, Fare is a what was paid for them alltogether
 ## lets calculate Fare per Person
 
+titanic.full$Fare <- ifelse(titanic.full$Fare<=0, 0, titanic.full$Fare)
+
 titanic.full$FarePP <- titanic.full$Fare/titanic.full$SameTix
 summary(titanic.full$FarePP)
 
@@ -265,7 +272,7 @@ ggplot(titanic.full, aes(FarePP)) +
   theme(plot.title = element_text(hjust = 0.5))
 
 ## based on the chart above we will break down our people into groups by Fare they paid
-titanic.full$FareGroup <- cut(titanic.full$FarePP, 9)
+titanic.full$FareGroup <- cut(titanic.full$FarePP, 6)
 
 prop.table(table(titanic.full$FareGroup, titanic.full$Survived), margin = 1)
 ## 94% of people with Fare less than $6 perished, but this doesnt give us any new info, 
@@ -280,10 +287,10 @@ aggregate(Survived ~ FareGroup + Pclass, data = titanic.full, FUN = function(x){
 ## next we'll create Age groups, considering child turns adult when reaches 18 y.o
 titanic.full$Age <- ifelse(titanic.full$Age <= 1, 1, round(titanic.full$Age, 0))
 
-titanic.full$Age_Group <- cut(titanic.full$Age, 8)
+titanic.full$AgeGroup <- cut(titanic.full$Age, 8)
 
-aggregate(Survived ~ Age_Group + Sex, data = titanic.full, FUN = sum) 
-aggregate(Survived ~ Age_Group + Sex, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+aggregate(Survived ~ AgeGroup + Sex, data = titanic.full, FUN = sum) 
+aggregate(Survived ~ AgeGroup + Sex, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 ## all senior females survived
 
 ## Now we'll extract titles from name column
@@ -339,19 +346,72 @@ titanic.full$Deck <- NA
 titanic.full$Deck <- factor(substr(titanic.full$Cabin, start =1, stop =1))
 table(titanic.full$Deck)
 
+table(titanic.full$Pclass, titanic.full$Deck)
+## Visibly higher decks respond to better Pclass
+
+table(titanic.full$FareGroup, titanic.full$Deck)
+## while higher decks also correspond to higher price point
+
+table(titanic.full$AgeGroup, titanic.full$Deck)
+## we can confirm that older people prefer higher decks/cabins
+
+table(titanic.full$AgeGroup, titanic.full$Survived)
+## the older you are the less likely you were to survive
+
+table(titanic.full$TravelGroup, titanic.full$Deck)
+## bigger groups tend to travel in higher decks
+
+table(titanic.full$AgeGroup, titanic.full$TravelGroup)
+## older people tend to travel in smaller groups, that can be explained that larger groups  very often consist of kids
+
+table(titanic.full$AgeGroup, titanic.full$Friend)
+## the older the people the more they prefer to travel alone or with spouse vs friends
+
+table(titanic.full$Title, titanic.full$Deck)
+## Dr prefers higher decks, while Mr, Mrs, Miss tent to pick in B-D decks
+
+table(titanic.full$Title, titanic.full$Deck, titanic.full$Survived)
+## Mr from higher decks tend to perish
+
+table(titanic.full$Title, titanic.full$Embarked)
+
+table(titanic.full$Embarked, titanic.full$Deck)
+## people boarded in Q mostly don't have Cabin data; availble cabn data for lower decks was recorded only at S port
+
+table(titanic.full$TravelGroup, titanic.full$Embarked)
+## very interesting, from Q boarded only singles and groups up to 3 people
+## up to 5 people boarded from C, and all the bigger groups boarded from S
+
+aggregate(Survived ~ Pclass + Deck, data=filter(titanic.full, Deck !=''),FUN = function(x) {sum(x)/length(x)})
+aggregate(Survived ~ Pclass + Deck, data=filter(titanic.full, Deck !=''),FUN = function(x) {sum(x)/length(x)})
 ## we select only columns from train set that we think we can use in our model
 ## then we split our new dataset into two chunks, one to create a model
 ## and then test it on a train set
 
-train <- titanic.full[c(2,3, 5, 6, 12, 20, 22, 23, 24)]
-fit <- train[1:700,]
-test <- train[701:891,]
+install.packages("caTools")
+library("caTools")
+
+train <- titanic.full[c("Survived", "Sex", "Pclass", "Age", "Embarked", "Friend", "Group", "FareGroup", "AgeGroup", "Title", "Deck")]
+str(train)
+train$Sex = factor(train$Sex)
+train$Pclass = factor(train$Pclass)
+train$Survived = factor(train$Survived)
+train$Embarked = factor(train$Embarked)
+train$Group = factor(train$Group)
+set.seed(123)
 
 test_og <- filter(train, is.na(train$Survived==T))
+train_og <- filter(train, is.na(train$Survived==F))
+
+split = sample.split(train_og$Survived, SplitRatio =0.8)
+
+fit <- subset(train_og, split ==T)
+test <- subset(train_og, split ==F) 
+
 ## now we create a model
 model <- glm(Survived ~ ., family = binomial(link='logit'), data = fit )
 
-step(model)
+model <- step(model)
 
 ## by using summary() we obtain results of our model
 summary(model)
