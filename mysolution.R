@@ -471,12 +471,16 @@ library("randomForest")
 model <- rpart(Survived~., data = fit, method = "class")
 rpart.plot (model, extra =4)
 
+<<<<<<< HEAD
 y_pred = predict(model, newdata = test[, -which(names(test)== "Survived")], type ="class")
 table(test$Survived, y_pred)
 error <- mean(y_pred != test$Survived) ## missclasification error
 paste('Accuracy', round(1 - error, 4)) ##
 
 ## our accuracy went down
+=======
+
+>>>>>>> c2d28dca4ce8258778b7fcdf5ec0346500514c28
 
 rm(list = ls())
 
