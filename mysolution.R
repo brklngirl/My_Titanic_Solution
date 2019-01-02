@@ -471,16 +471,49 @@ library("randomForest")
 model <- rpart(Survived~., data = fit, method = "class")
 rpart.plot (model, extra =4)
 
-<<<<<<< HEAD
 y_pred = predict(model, newdata = test[, -which(names(test)== "Survived")], type ="class")
 table(test$Survived, y_pred)
+
 error <- mean(y_pred != test$Survived) ## missclasification error
 paste('Accuracy', round(1 - error, 4)) ##
 
 ## our accuracy went down
-=======
 
->>>>>>> c2d28dca4ce8258778b7fcdf5ec0346500514c28
+### Random Forest
+
+set.seed(737)
+model = randomForest(Survived~., data = fit) 
+
+plot(model)
+## Our model has a smaller error predicting death vs survival, while verall error averages put @ ~17%
+## we will leave a default of 500 random trees as our choice
+
+y_pred = predict(model, newdata = test[, -which(names(test)== "Survived")], type ="class")
+table(test$Survived, y_pred)
+
+error <- mean(y_pred != test$Survived) ## missclasification error
+paste('Accuracy', round(1 - error, 4)) 
+
+## while our accuracy improved a bit, randomForest suffers in terms of interpretability 
+## vs Decision Tree which is very visual
+## let's plot mean Gini index to define important features
+
+gini = as.data.frame(importance(model))
+gini = data.frame(Feature = row.names(gini),
+                  MeanGini = round(gini[, "MeanDecreaseGini"], 2))
+gini = gini[order(-gini[, "MeanGini"]),]
+
+ggplot(gini, aes(reorder(Feature, MeanGini), MeanGini, group =1)) +
+  geom_point(color = "red", shape = 17, size = 2) +
+  geom_line(color = "blue", size = 1) +
+  scale_y_continuous(breaks = seq(0, 60, 10)) +
+  xlab("Feature") +
+  ggtitle("Mean Gini Index of Features") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
 
 rm(list = ls())
 
