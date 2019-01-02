@@ -388,6 +388,13 @@ aggregate(Survived ~ Pclass + Deck, data=filter(titanic.full, Deck !=''),FUN = f
 ## then we split our new dataset into two chunks, one to create a model
 ## and then test it on a train set
 
+## I want to try and fill some missing Deck Info
+
+deck.df <- subset(titanic.full, Deck != '' | Deck != NA)
+deck <- deck.df[, c("PassengerId", "Cabin", "Embarked", "Tix", "FarePP", "Deck")] 
+
+
+
 install.packages("caTools")
 library("caTools")
 
