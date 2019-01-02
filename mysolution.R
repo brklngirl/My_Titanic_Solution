@@ -398,10 +398,11 @@ train$Pclass = factor(train$Pclass)
 train$Survived = factor(train$Survived)
 train$Embarked = factor(train$Embarked)
 train$Group = factor(train$Group)
+
 set.seed(123)
 
-test_og <- filter(train, is.na(train$Survived==T))
-train_og <- filter(train, is.na(train$Survived==F))
+test_og <- filter(train, is.na(Survived==T))
+train_og <- filter(train, Survived == 0 |Survived == 1 )
 
 split = sample.split(train_og$Survived, SplitRatio =0.8)
 
@@ -456,7 +457,21 @@ round(auc, 4)
 prob_pred <- predict(model, newdata = test_og)
 y_pred <-ifelse(prob_pred > 0.5, 1, 0)
 results <- data.frame(PassengerID = c(892:1309), Survived = y_pred)
-write.csv(results, file = "TitanicGlmPrediction 09104.csv", row.names = F, quote = F)
+write.csv(results, file = "TitanicGlmPrediction 0101 09007.csv", row.names = F, quote = F)
+
+install.packages("rpart")
+install.packages("rpart.plot")
+install.packages("randomForest")
+library("rpart")
+library("rpart.plot")
+library("randomForest")
+
+### Decision Tree
+
+model <- rpart(Survived~., data = fit, method = "class")
+rpart.plot (model, extra =4)
+
+
 
 rm(list = ls())
 
