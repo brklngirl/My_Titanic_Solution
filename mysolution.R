@@ -393,7 +393,40 @@ aggregate(Survived ~ Pclass + Deck, data=filter(titanic.full, Deck !=''),FUN = f
 deck.df <- subset(titanic.full, Deck != '' | Deck != NA)
 deck <- deck.df[, c("PassengerId", "Cabin", "Embarked", "Tix", "FarePP", "Deck")] 
 
+## let's try and fill those missing values from our df that has all available deck info
 
+for(i in 1:dim(titanic.full)[1]){
+  
+  x <- integer()
+  for(x in 1:dim(deck)[1]){
+  
+  if(titanic.full$Tix[i] == deck$Tix[x]) {
+    titanic.full$Deck[i] <- deck$Deck[x]
+  }
+  }
+}
+
+dim(deck)[1]
+
+table(titanic.full$Deck)
+## levels(titanic.full$Deck) <- c("A", "B", "C", "D", "E", "F", "G", "T")
+
+## I want to try to assign same cabins? to the people on the same tix
+
+
+for(i in 1:dim(titanic.full)[1]){
+  
+  x <- integer()
+  for(x in 1:dim(deck)[1]){
+    
+    if(titanic.full$Tix[i] == deck$Tix[x]) {
+      titanic.full$Cabin[i] <- deck$Cabin[x]
+    }
+  }
+}
+
+
+## so we basically filled empty cabin info and deck info from tix data, this way we have 16NA's less than before
 
 install.packages("caTools")
 library("caTools")
