@@ -243,23 +243,24 @@ titanic.full$TixText <- gsub("[.]","",str_to_upper(ifelse(is.na((str_extract(tit
                                                                       str_extract(titanic.full$Ticket,"\\D[[:graph:][:space:]]*(?![:space:]\\d{3,}?)"),   ## if yes, bring what is not followed by min 3digits
                                                                            str_extract(titanic.full$Ticket, "\\D[[:graph:][:space:]]*(?=[:space:]\\d{3,}?)") ), locale = "en")) ## if it is not na, extract text part
 
-table(titanic.full$TixText)
 levels(factor(titanic.full$TixText))
+## we got 42 levels, assuming we already cleaned some periods ets
 
 table(titanic.full$Embarked, titanic.full$TixText)
+
 ## A..Prefixes (A5, A4, CA..etc)were assigned almost exclusively at Southhamptom port, as well
 ## as SOTON (and like ones: SO/C, SCO, SOC, STON, SW, WE..)
 ## while SC/Paric and SC/AH Basle are exclusive to Cherbourg
 table(titanic.full$Pclass, titanic.full$TixText)
 
+### We will later revisit embarked prediction based on dicovered info
+
 ### not yet defined deck variable table(titanic.full$Deck, titanic.full$TixText)
 
 
 
-titanic.full$SameTix <- ave(titanic.full$PassengerId, titanic.full[, "TixNum"], FUN=length)
+titanic.full$SameTix <- ifelse(titanic.full$TixNum == 0, 0, ave(titanic.full$PassengerId, titanic.full[, "TixNum"], FUN=length))
 titanic.full$Friend <- ifelse(titanic.full$SameTix >= titanic.full$Family, titanic.full$SameTix - titanic.full$Family, 0)
-
-### need to rewrite same tix calc !!!
 
 titanic.full$TravelGroup <- titanic.full$Family + titanic.full$Friend
 table(titanic.full$TravelGroup)
