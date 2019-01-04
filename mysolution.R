@@ -232,12 +232,26 @@ table(titanic.full$Family)
 
 ## I want to add a column to see how many people could travel together on the same ticket #
 ## assuming sometimes a group of friends could travel together
-titanic.full$Tix <- gsub("[.|/]","",titanic.full$Ticket) 
+
+
+
+install.packages("stringr")
+library("stringr")
+
+##First we will clean extra punctuation from tickets
+## - remove this titanic.full$Tix <- gsub("[.|/]","",titanic.full$Ticket) 
 
 titanic.full$TixText <- NA
 titanic.full$TixNum <- NA
-titanic.full$TixText <- unlist(regmatches(x = titanic.full$Tix, regexpr(pattern = "[:alnum:]*\\.", text = titanic.full$Name)))
-titanic.full$TixNum <- unlist(regmatches(x = titanic.full$Tix, regexpr(pattern = "\\d", text = titanic.full$Name)))
+titanic.full$TixNum <- str_extract(titanic.full$Ticket, "\\d+")
+titanic.full$TixText <- gsub("[.]","",str_to_upper(str_extract(titanic.full$Ticket, "\\D[[:graph:]]+"), locale = "en"))
+  
+regmatches(x = titanic.full$Ticket, regexpr(pattern = "+[:alnum:]]\\.", text = titanic.full$Tix)))
+
+###titanic.full$TixText <- unlist(regmatches(x = titanic.full$Tix, regexpr(pattern = "[:alnum:]*\\.", text = titanic.full$Name)))
+###titanic.full$TixNum <- unlist(regmatches(x = titanic.full$Tix, regexpr(pattern = "\\d", text = titanic.full$Name)))
+
+
 
 titanic.full$SameTix <- ave(titanic.full$PassengerId, titanic.full[, "Tix"], FUN=length)
 titanic.full$Friend <- ifelse(titanic.full$SameTix >= titanic.full$Family, titanic.full$SameTix - titanic.full$Family, 0)
