@@ -243,6 +243,7 @@ titanic.full$TixText <- gsub("[.]","",str_to_upper(ifelse(is.na((str_extract(tit
                                                                       str_extract(titanic.full$Ticket,"\\D[[:graph:][:space:]]*(?![:space:]\\d{3,}?)"),   ## if yes, bring what is not followed by min 3digits
                                                                            str_extract(titanic.full$Ticket, "\\D[[:graph:][:space:]]*(?=[:space:]\\d{3,}?)") ), locale = "en")) ## if it is not na, extract text part
 
+titanic.full$TixText <- sub(pattern %in% c("SOTON","STON", "SCO", "SOC","SOP"), "SO", titanic.full$TixText )
 levels(factor(titanic.full$TixText))
 ## we got 42 levels, assuming we already cleaned some periods ets
 
@@ -253,13 +254,9 @@ table(titanic.full$Embarked, titanic.full$TixText)
 ## while SC/Paric and SC/AH Basle are exclusive to Cherbourg
 table(titanic.full$Pclass, titanic.full$TixText)
 
-### We will later revisit embarked prediction based on dicovered info
+### !!!!!! not yet defined deck variable table(titanic.full$Deck, titanic.full$TixText)
 
-### not yet defined deck variable table(titanic.full$Deck, titanic.full$TixText)
-
-
-
-titanic.full$SameTix <- ifelse(titanic.full$TixNum == 0, 0, ave(titanic.full$PassengerId, titanic.full[, "TixNum"], FUN=length))
+titanic.full$SameTix <- ifelse(titanic.full$TixNum == 0, 1, ave(titanic.full$PassengerId, titanic.full[, "TixNum"], FUN=length))
 titanic.full$Friend <- ifelse(titanic.full$SameTix >= titanic.full$Family, titanic.full$SameTix - titanic.full$Family, 0)
 
 titanic.full$TravelGroup <- titanic.full$Family + titanic.full$Friend
@@ -284,8 +281,9 @@ aggregate(Survived ~ Pclass + FarePP, data = titanic.full, FUN = function(x) {su
 ggplot(titanic.full, aes(FarePP)) +
   geom_density(fill = "blue", alpha = 0.5) + 
   facet_wrap(~Pclass) +
-  geom_vline(aes(xintercept = 21), colour = "darkblue", linetype = "dashed", size =1) + 
-  geom_vline(aes(xintercept = 10), colour = "red", linetype = "dashed", size =1) +
+  geom_vline(aes(xintercept = 25), colour = "darkblue", linetype = "dashed", size =1) + 
+  geom_vline(aes(xintercept = 15), colour = "red", linetype = "dashed", size =1) +
+  geom_vline(aes(xintercept = 10), colour = "light green", linetype = "dashed", size =1) +
   ggtitle(("Fare per person distribution by class ")) + 
   theme_bw() + 
   theme(plot.title = element_text(hjust = 0.5))
@@ -325,9 +323,10 @@ table(titanic.full$Title, titanic.full$Sex)
 
 ##Now we will group outliers among titles into "other" group, and similar ones into the larger buckets
 TL <- levels(titanic.full$Title)
-levels(titanic.full$Title) <- ifelse(TL %in%  c("Don.", "Jonkheer.", "Major.", "Sir.", "Rev.", "Capt.", "Col."), "Mr.",
+levels(titanic.full$Title) <- gsub("[.]", "", ifelse(TL %in%  c("Don.", "Major.", "Sir.", "Rev.", "Capt.", "Col."), "Mr.",
                                      ifelse(TL %in% c("Dona.", "Countess.", "Lady.", "Mme."), "Mrs.",
-                                            ifelse(TL %in% c("Ms.", "Mlle."), "Miss.", TL)))
+                                            ifelse(TL %in% c("Ms.", "Mlle."), "Miss.", 
+                                                   ifelse(TL == "Jonkheer.", "Master.", TL)))))
 
 ## Let's check, if we got the desired large groups of Title
 table(titanic.full$Title, titanic.full$Sex)
@@ -366,7 +365,7 @@ titanic.full$Deck <- factor(substr(titanic.full$Cabin, start =1, stop =1))
 table(titanic.full$Deck)
 
 table(titanic.full$Pclass, titanic.full$Deck)
-## Visibly higher decks respond to better Pclass
+## higher decks respond to higher Pclass
 
 table(titanic.full$FareGroup, titanic.full$Deck)
 ## while higher decks also correspond to higher price point
@@ -389,19 +388,24 @@ table(titanic.full$AgeGroup, titanic.full$Friend)
 table(titanic.full$Title, titanic.full$Deck)
 ## Dr prefers higher decks, while Mr, Mrs, Miss tent to pick in B-D decks
 
+table(titanic.full$Title, titanic.full$Embarked)
+
 table(titanic.full$Title, titanic.full$Deck, titanic.full$Survived)
 ## Mr from higher decks tend to perish
 
 table(titanic.full$Title, titanic.full$Embarked)
 
 table(titanic.full$Embarked, titanic.full$Deck)
-## people boarded in Q mostly don't have Cabin data; availble cabn data for lower decks was recorded only at S port
+## people who boarded in Q mostly don't have a Cabin data; 
+## availble cabin data for lower decks was recorded only at S port
 
 table(titanic.full$TravelGroup, titanic.full$Embarked)
-## very interesting, from Q boarded only singles and groups up to 3 people
-## up to 5 people boarded from C, and all the bigger groups boarded from S
+## very interesting, from Q boarded only singles and groups up to 3 people 
+## could be that their ticlets were specfic to smaller cabin sizes?
+## up to 5 people boarded from C, and all the bigger groups boarded from S 
+## perhaps this happened due to availability; also, did anyone share cabins with strangers?
 
-aggregate(Survived ~ Pclass + Deck, data=filter(titanic.full, Deck !=''),FUN = function(x) {sum(x)/length(x)})
+### repeat  aggregate(Survived ~ Pclass + Deck, data=filter(titanic.full, Deck !=''),FUN = function(x) {sum(x)/length(x)})
 aggregate(Survived ~ Pclass + Deck, data=filter(titanic.full, Deck !=''),FUN = function(x) {sum(x)/length(x)})
 ## we select only columns from train set that we think we can use in our model
 ## then we split our new dataset into two chunks, one to create a model
@@ -409,8 +413,8 @@ aggregate(Survived ~ Pclass + Deck, data=filter(titanic.full, Deck !=''),FUN = f
 
 ## I want to try and fill some missing Deck Info
 
-deck.df <- subset(titanic.full, Deck != '' | Deck != NA)
-deck <- deck.df[, c("PassengerId", "Cabin", "Embarked", "Tix", "FarePP", "Deck")] 
+deck.df <- subset(titanic.full, Deck != '' | is.na(Deck == T))
+deck <- deck.df[, c("PassengerId", "Cabin", "Embarked", "TixNum", "FarePP", "Deck")] 
 
 ## let's try and fill those missing values from our df that has all available deck info
 
@@ -419,16 +423,15 @@ for(i in 1:dim(titanic.full)[1]){
   x <- integer()
   for(x in 1:dim(deck)[1]){
   
-  if(titanic.full$Tix[i] == deck$Tix[x]) {
+  if(titanic.full$TixNum[i] == deck$TixNum[x]) {
     titanic.full$Deck[i] <- deck$Deck[x]
   }
   }
 }
 
-dim(deck)[1]
 
 table(titanic.full$Deck)
-## levels(titanic.full$Deck) <- c("A", "B", "C", "D", "E", "F", "G", "T")
+## This way we predicted deck for additional 23 passengers
 
 ## I want to try to assign same cabins? to the people on the same tix
 
@@ -438,14 +441,14 @@ for(i in 1:dim(titanic.full)[1]){
   x <- integer()
   for(x in 1:dim(deck)[1]){
     
-    if(titanic.full$Tix[i] == deck$Tix[x]) {
+    if(titanic.full$TixNum[i] == deck$TixNum[x]) {
       titanic.full$Cabin[i] <- deck$Cabin[x]
     }
   }
 }
 
 
-## so we basically filled empty cabin info and deck info from tix data, this way we have 16NA's less than before
+## so we basically filled empty cabin info and deck info from tix data
 
 install.packages("caTools")
 library("caTools")
