@@ -23,14 +23,35 @@
 ## set working directory
 setwd("C:/Users/Lenovo/Documents/R/R WD")
 
+install.packages("Amelia")
+install.packages("dplyr")
+install.packages("ggplot2")
+install.packages("scales")
+install.packages("stringr")
+install.packages("caTools")
+install.packages("ROCR")
+install.packages("rpart")
+install.packages("rpart.plot")
+install.packages("randomForest")
+library("Amelia")
+library("dplyr")
+library("ggplot2")
+library("scales")
+library("stringr")
+library("caTools")
+library("ROCR")
+library("rpart")
+library("rpart.plot")
+library("randomForest")
+
 ##read in some data; read.csv or read.table by default reads our columns as factors
 titanic.train <- read.csv(file = "train.csv", header = T, stringsAsFactors = F, na.strings = c(" "))
 titanic.test <- read.csv(file = "test.csv", header = T, stringsAsFactors = F,na.strings = c(" "))
 
-is.factor(titanic.train$Sex)
-is.factor(titanic.train$Embarked)
+### is.factor(titanic.train$Sex)
+### is.factor(titanic.train$Embarked)
 
-# now we need to combine both data sets
+# now we will combine both data sets
 # we create a new column T/F in both sets to differentiate them later if a part of a train or test set
 titanic.train$IsTrainSet <- T
 titanic.test$IsTrainSet <- F
@@ -77,8 +98,8 @@ colSums(is.na(titanic.full) | titanic.full == '')
 
 ## Cabin has the most NA's (1014), then Age (263), Emb and Fare have 2 and 1 NA respectively
 ## missmap function from Amelia package will visualize our missing values
-install.packages("Amelia")
-library("Amelia")
+
+
 missmap(titanic.full, main = "Titanic Dataset - Missing Value", col = c("green", "black"), legend = F)
 
 ## from this chart we can see that Age is stored as NA's (= populated), while Cabin was not populated
@@ -87,14 +108,12 @@ missmap(titanic.full, main = "Titanic Dataset - Missing Value", col = c("green",
 ## Next step, we will try and fill missing values
 ## we'll beging with missing Fare - only one value
 ## Let's extract all date for that missing value (using filter() from dplyr package)
-install.packages("dplyr")
-library("dplyr")
+
 filter(titanic.full, is.na(titanic.full$Fare)==T)
 
 ## this is a male passenger from 3rd class, who embarked in a port S
 ## we want to see what is a typical Fare was paid by similar passengers
-install.packages("ggplot2")
-library("ggplot2")
+
 
 ggplot(filter(titanic.full, Pclass==3 & Embarked=="S"), aes(Fare)) +
   geom_density(fill = "blue", alpha = 0.5) + 
@@ -105,11 +124,7 @@ ggplot(filter(titanic.full, Pclass==3 & Embarked=="S"), aes(Fare)) +
   theme(plot.title = element_text(hjust = 0.5))
 
 ## the mean and median are very different, hovewer, we can see that majority of people
-## who fit our criteria (a huge spike) paid meadian value; so we 'll go with it
-titanic.full$Fare[is.na(titanic.full$Fare == T)] = median(filter(titanic.full, Pclass ==3 & Embarked == "S")$Fare, na.rm =T)
-
-## I also want to check that there are no abnormalities among Fare values
-summary(titanic.full$Fare)  
+## who fit our criteria (a huge spike) paid meadian value; 
 
 ## We see that some rows indicate a Fare value = 0, let's see further
 filter(titanic.full, Fare == 0)
@@ -117,6 +132,7 @@ filter(titanic.full, Fare == 0)
 ## there are 17 instances, all are male btw 19 -40 y.o, mostly 36-40, traveling alone, emb in Southhampton
 ## 2 are from train set, among others only one person survived
 ## we will leave it as is for now
+
 
 
 ## Next I want to query just a missing Embarked values of a titanic.full
@@ -194,8 +210,6 @@ table(titanic.train$Sex, titanic.train$Survived)
 prop.table(table(titanic.train$Pclass, titanic.train$Survived))
 
 ## I want to see if there is a difference btw sex survival by different Pclass
-install.packages("scales")
-library("scales")
 
 ggplot(titanic.full, aes(x = Pclass, y = Survived)) +
   geom_bar(aes(fill = factor(Sex)), stat = "identity", position="fill") +
@@ -231,10 +245,7 @@ titanic.full$Family <- titanic.full$SibSp + titanic.full$Parch + titanic.full$On
 table(titanic.full$Family)
 
 ## I want to add a column to see how many people could travel together on the same ticket #
-## assuming sometimes a group of friends could travel together
-
-install.packages("stringr")
-library("stringr")
+## assuming sometimes a group of friends or a family w/nanny could travel together
 
 titanic.full$TixText <- NA
 titanic.full$TixNum <- NA
@@ -243,10 +254,11 @@ titanic.full$TixText <- gsub("[.]","",str_to_upper(ifelse(is.na((str_extract(tit
                                                                       str_extract(titanic.full$Ticket,"\\D[[:graph:][:space:]]*(?![:space:]\\d{3,}?)"),   ## if yes, bring what is not followed by min 3digits
                                                                            str_extract(titanic.full$Ticket, "\\D[[:graph:][:space:]]*(?=[:space:]\\d{3,}?)") ), locale = "en")) ## if it is not na, extract text part
 
-Pfix <- NA
- 
 levels(factor(titanic.full$TixText)) 
 
+
+
+### ---
 titanic.full$TixText <- sub(" ", "/", titanic.full$TixText)
 titanic.full$TixText <- sub("A/", "A", titanic.full$TixText)
 titanic.full$TixText <- sub("AQ/", "AQ", titanic.full$TixText)
@@ -262,7 +274,7 @@ titanic.full$TixText <- sub("FCC", "FC", titanic.full$TixText)
 titanic.full$TixText <- sub("SO/C", "SC", titanic.full$TixText)
 
 levels(factor(titanic.full$TixText))
-## we got down to34 levels, assuming we already cleaned some periods etc
+## we got down to 34 levels, assuming we already cleaned some periods etc
 
 table(titanic.full$Embarked, titanic.full$TixText)
 
@@ -271,17 +283,19 @@ table(titanic.full$Embarked, titanic.full$TixText)
 ## while SC/Paric and SC/AH Basle are exclusive to Cherbourg
 table(titanic.full$Pclass, titanic.full$TixText)
 
+###___
 titanic.full$SameTix <- ifelse(titanic.full$TixNum == 0, 1, ave(titanic.full$PassengerId, titanic.full[, "TixNum"], FUN=length))
-titanic.full$Friend <- ifelse(titanic.full$SameTix >= titanic.full$Family, titanic.full$SameTix - titanic.full$Family, 0)
+titanic.full$Other <- ifelse(titanic.full$SameTix >= titanic.full$Family, titanic.full$SameTix - titanic.full$Family, 0)
 
-titanic.full$TravelGroup <- titanic.full$Family + titanic.full$Friend
+titanic.full$TravelGroup <- titanic.full$Family + titanic.full$Other
 table(titanic.full$TravelGroup)
 
 ## More than half of passengers are traveling alone, biggest family has 11 members
 ## we will group them together
-titanic.full$Group <- ifelse(titanic.full$TravelGroup == 1, "Alone", ifelse(titanic.full$TravelGroup <= 4, "Medium", "Large"))
+titanic.full$Group <- ifelse(titanic.full$TravelGroup == 1, "Single", ifelse(titanic.full$TravelGroup <= 4, "Small", "Large"))
 mosaicplot(~Group + Survived, data = titanic.full, main = "Survival rate based on Family Size", shade = T)
 
+aggregate(Survived ~ Sex + TravelGroup, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 ## interestingly, Fare seems to indicate amount paid per ticket, not per person
 ## thus, if 5 people travel together, Fare is a what was paid for them alltogether
 ## lets calculate Fare per Person
@@ -290,6 +304,13 @@ titanic.full$Fare <- ifelse(titanic.full$Fare<=0, 0, titanic.full$Fare)
 
 titanic.full$FarePP <- titanic.full$Fare/titanic.full$SameTix
 summary(titanic.full$FarePP)
+
+##Let's fill our NA with median FarePP for the passengers of 3rd class embarked in S 
+titanic.full$FarePP[is.na(titanic.full$FarePP == T)] = median(filter(titanic.full, Pclass ==3 & Embarked == "S")$FarePP, na.rm =T)
+
+## Now we'll check that it has been filled
+summary(titanic.full$FarePP)  
+
 
 aggregate(Survived ~ Pclass + FarePP, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 
@@ -466,11 +487,12 @@ for(i in 1:dim(titanic.full)[1]){
 ## so we basically filled empty cabin info and deck info from tix data
 
 table(titanic.full$Deck, titanic.full$TixText)
+titanic.full$TixText[titanic.full$Deck %in% c("A", "B")] <- "PC"
+## titanic.full$TixText[titanic.full$Deck %in% c("A", "B")] <- "PC"
 
-install.packages("caTools")
-library("caTools")
+titanic.full$NumStart <- regmatches(titanic.full$TixNum, regexpr("\\d", titanic.full$TixNum))
 
-train <- titanic.full[c("Survived", "Sex", "Pclass", "Age", "Embarked", "Friend", "Group", "FarePP", "FareGroup", "AgeGroup", "Title", "Deck", "TixNum", "TixText")]
+train <- titanic.full[c("Survived", "Sex", "Pclass", "Age", "Embarked", "Parch", "SibSp", "Friend", "Group", "FarePP", "FareGroup", "AgeGroup", "Title", "Deck", "TixNum", "NumStart")]
 str(train)
 train$Sex = factor(train$Sex)
 train$Pclass = factor(train$Pclass)
@@ -478,9 +500,9 @@ train$Survived = factor(train$Survived)
 train$Embarked = factor(train$Embarked)
 train$Group = factor(train$Group)
 train$TixNum <- as.numeric(train$TixNum)
-train$TixText = factor(train$TixText)
+## train$TixText = factor(train$TixText)
 
-set.seed(123)
+set.seed(129)
 
 test_og <- filter(train, is.na(Survived==T))
 train_og <- filter(train, Survived == 0 |Survived == 1 )
@@ -502,7 +524,7 @@ summary(model)
 anova(model, test = "Chisq")
 
 ## Now we are going to assess the predictive ability of our model
-prob_pred <- predict(model, newdata = test, na.action = na.action, type = 'response') 
+prob_pred <- predict(model, newdata = test, type = 'response') 
 y_pred <- ifelse(prob_pred > 0.5,1,0)
 
 table(test$Survived, y_pred >0.5) ## confusion matrix
@@ -519,8 +541,6 @@ paste('Accuracy', round(1 - error, 4)) ##
 ## (FPR) at various threshold settings while the AUC is the area under the ROC curve. As a rule of thumb,
 ## model with good predictive ability should have an AUC closer to 1 (1 is ideal) than to 0.5.
 
-install.packages("ROCR")
-library("ROCR")
 fit_pred <- prediction(prob_pred, test$Survived)
 fit_perf <- performance(fit_pred, "tpr", "fpr")
 plot(fit_perf, col = "green", lwd =2, main = "ROC Curve")
@@ -538,14 +558,7 @@ round(auc, 4)
 prob_pred <- predict(model, newdata = test_og)
 y_pred <-ifelse(prob_pred > 0.5, 1, 0)
 results <- data.frame(PassengerID = c(892:1309), Survived = y_pred)
-write.csv(results, file = "TitanicGlmPrediction 0101 09007.csv", row.names = F, quote = F)
-
-install.packages("rpart")
-install.packages("rpart.plot")
-install.packages("randomForest")
-library("rpart")
-library("rpart.plot")
-library("randomForest")
+### write.csv(results, file = "TitanicGlmPrediction 0101 09007.csv", row.names = F, quote = F)
 
 ### Decision Tree
 
