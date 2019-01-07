@@ -125,6 +125,7 @@ ggplot(filter(titanic.full, Pclass==3 & Embarked=="S"), aes(Fare)) +
 
 ## the mean and median are very different, hovewer, we can see that majority of people
 ## who fit our criteria (a huge spike) paid meadian value; 
+## we will leave filling it for later, I want to do some more studying of the data and FE
 
 ## We see that some rows indicate a Fare value = 0, let's see further
 filter(titanic.full, Fare == 0)
@@ -132,8 +133,6 @@ filter(titanic.full, Fare == 0)
 ## there are 17 instances, all are male btw 19 -40 y.o, mostly 36-40, traveling alone, emb in Southhampton
 ## 2 are from train set, among others only one person survived
 ## we will leave it as is for now
-
-
 
 ## Next I want to query just a missing Embarked values of a titanic.full
 ## so I want to filter all the Embarked that is NA , and i want only the Embarked column to come back
@@ -257,6 +256,7 @@ titanic.full$TixText <- gsub("[.]","",str_to_upper(ifelse(is.na((str_extract(tit
 levels(factor(titanic.full$TixText)) 
 
 
+titanic.full$TixBg <- regmatches(titanic.full$TixNum, regexpr("\\d", titanic.full$TixNum))
 
 ### ---
 titanic.full$TixText <- sub(" ", "/", titanic.full$TixText)
@@ -311,8 +311,10 @@ titanic.full$FarePP[is.na(titanic.full$FarePP == T)] = median(filter(titanic.ful
 ## Now we'll check that it has been filled
 summary(titanic.full$FarePP)  
 
+titanic.full$FarePP <- trunc(titanic.full$FarePP)
 
-aggregate(Survived ~ Pclass + FarePP, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+aggregate(Survived~ FarePP + Pclass, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+aggregate(Survived~ FarePP + Pclass, data = titanic.full, FUN = sum)
 
 ggplot(titanic.full, aes(FarePP)) +
   geom_density(fill = "blue", alpha = 0.5) + 
@@ -323,6 +325,8 @@ ggplot(titanic.full, aes(FarePP)) +
   ggtitle(("Fare per person distribution by class ")) + 
   theme_bw() + 
   theme(plot.title = element_text(hjust = 0.5))
+
+## would love to add survival line to those charts!!!!! maybe even do a violin plot
 
 ## based on the chart above we will break down our people into groups by Fare they paid
 titanic.full$FareGroup <- cut(titanic.full$FarePP, 6)
@@ -339,6 +343,9 @@ aggregate(Survived ~ FareGroup + Pclass, data = titanic.full, FUN = function(x){
 
 ## next we'll create Age groups, considering child turns adult when reaches 18 y.o
 titanic.full$Age <- ifelse(titanic.full$Age <= 1, 1, round(titanic.full$Age, 0))
+
+titanic.full$AgeDecades <-NA
+titanic.full$AgeDecades <- round(titanic.full$Age/10, 0)
 
 titanic.full$AgeGroup <- cut(titanic.full$Age, 8)
 
@@ -437,7 +444,7 @@ table(titanic.full$Embarked, titanic.full$Deck)
 
 table(titanic.full$TravelGroup, titanic.full$Embarked)
 ## very interesting, from Q boarded only singles and groups up to 3 people 
-## could be that their ticlets were specfic to smaller cabin sizes?
+## could be that their tickets were specfic to smaller cabin sizes?
 ## up to 5 people boarded from C, and all the bigger groups boarded from S 
 ## perhaps this happened due to availability; also, did anyone share cabins with strangers?
 
@@ -447,10 +454,18 @@ aggregate(Survived ~ Pclass + Deck, data=filter(titanic.full, Deck !=''),FUN = f
 ## then we split our new dataset into two chunks, one to create a model
 ## and then test it on a train set
 
+###titanic.full$LName <- NA
+###titanic.full$LName <- 
+
+titanic.full$FemSvv <- NA
+titanic.full$FemSvv <- ifelse(titanic.full$Sex == "female" & titanic.full$Survived == 1, 1, 0)
+titanic.full$FemSvvPercent <- NA
+titanic.full$FemSvvPercent <- ave(titanic.full$FemSvv, titanic.full[, "TixNum"], FUN= function (x) {sum(x)/length(x)})
+
 ## I want to try and fill some missing Deck Info
 
 deck.df <- subset(titanic.full, Deck != '' | is.na(Deck == T))
-deck <- deck.df[, c("PassengerId", "Cabin", "Embarked", "TixNum", "TixText", "FarePP", "Deck")] 
+deck <- deck.df[, c("Survived", "PassengerId", "Cabin", "Embarked", "TixNum", "TixText", "FarePP", "Deck", "FemSvvPercent")] 
 
 ## let's try and fill those missing values from our df that has all available deck info
 
@@ -490,9 +505,9 @@ table(titanic.full$Deck, titanic.full$TixText)
 titanic.full$TixText[titanic.full$Deck %in% c("A", "B")] <- "PC"
 ## titanic.full$TixText[titanic.full$Deck %in% c("A", "B")] <- "PC"
 
-titanic.full$NumStart <- regmatches(titanic.full$TixNum, regexpr("\\d", titanic.full$TixNum))
+titanic.full$TixBg <- regmatches(titanic.full$TixNum, regexpr("\\d", titanic.full$TixNum))
 
-train <- titanic.full[c("Survived", "Sex", "Pclass", "Age", "Embarked", "Parch", "SibSp", "Friend", "Group", "FarePP", "FareGroup", "AgeGroup", "Title", "Deck", "TixNum", "NumStart")]
+train <- titanic.full[c("Survived", "Sex", "Pclass", "Age", "Embarked", "Parch", "SibSp", "Other", "Group", "FarePP", "FareGroup", "AgeGroup", "Title", "Deck", "TixNum", "TixBg", "AgeDecades", "FemSvvPercent")]
 str(train)
 train$Sex = factor(train$Sex)
 train$Pclass = factor(train$Pclass)
@@ -500,7 +515,7 @@ train$Survived = factor(train$Survived)
 train$Embarked = factor(train$Embarked)
 train$Group = factor(train$Group)
 train$TixNum <- as.numeric(train$TixNum)
-## train$TixText = factor(train$TixText)
+train$TixBg = factor(train$TixBg)
 
 set.seed(129)
 
