@@ -243,9 +243,26 @@ titanic.full$TixText <- gsub("[.]","",str_to_upper(ifelse(is.na((str_extract(tit
                                                                       str_extract(titanic.full$Ticket,"\\D[[:graph:][:space:]]*(?![:space:]\\d{3,}?)"),   ## if yes, bring what is not followed by min 3digits
                                                                            str_extract(titanic.full$Ticket, "\\D[[:graph:][:space:]]*(?=[:space:]\\d{3,}?)") ), locale = "en")) ## if it is not na, extract text part
 
-titanic.full$TixText <- sub(pattern %in% c("SOTON","STON", "SCO", "SOC","SOP"), "SO", titanic.full$TixText )
+Pfix <- NA
+ 
+levels(factor(titanic.full$TixText)) 
+
+titanic.full$TixText <- sub(" ", "/", titanic.full$TixText)
+titanic.full$TixText <- sub("A/", "A", titanic.full$TixText)
+titanic.full$TixText <- sub("AQ/", "AQ", titanic.full$TixText)
+titanic.full$TixText <- sub("WE/", "WE", titanic.full$TixText)
+titanic.full$TixText <- sub("AH/BASLE", "AH", titanic.full$TixText)
+titanic.full$TixText <- sub("SO/|STON|SOC|SCO|SOP", "SOTON", titanic.full$TixText)
+titanic.full$TixText <- sub("CASOTON", "SOTON/CA", titanic.full$TixText)
+titanic.full$TixText <- sub("/2", "2", titanic.full$TixText)
+titanic.full$TixText <- sub("/3", "3", titanic.full$TixText)
+titanic.full$TixText <- sub("SOTONPP", "SOTON/PP", titanic.full$TixText)
+titanic.full$TixText <- sub("SOTONC", "SOTON", titanic.full$TixText)
+titanic.full$TixText <- sub("FCC", "FC", titanic.full$TixText)
+titanic.full$TixText <- sub("SO/C", "SC", titanic.full$TixText)
+
 levels(factor(titanic.full$TixText))
-## we got 42 levels, assuming we already cleaned some periods ets
+## we got down to34 levels, assuming we already cleaned some periods etc
 
 table(titanic.full$Embarked, titanic.full$TixText)
 
@@ -253,8 +270,6 @@ table(titanic.full$Embarked, titanic.full$TixText)
 ## as SOTON (and like ones: SO/C, SCO, SOC, STON, SW, WE..)
 ## while SC/Paric and SC/AH Basle are exclusive to Cherbourg
 table(titanic.full$Pclass, titanic.full$TixText)
-
-### !!!!!! not yet defined deck variable table(titanic.full$Deck, titanic.full$TixText)
 
 titanic.full$SameTix <- ifelse(titanic.full$TixNum == 0, 1, ave(titanic.full$PassengerId, titanic.full[, "TixNum"], FUN=length))
 titanic.full$Friend <- ifelse(titanic.full$SameTix >= titanic.full$Family, titanic.full$SameTix - titanic.full$Family, 0)
@@ -414,7 +429,7 @@ aggregate(Survived ~ Pclass + Deck, data=filter(titanic.full, Deck !=''),FUN = f
 ## I want to try and fill some missing Deck Info
 
 deck.df <- subset(titanic.full, Deck != '' | is.na(Deck == T))
-deck <- deck.df[, c("PassengerId", "Cabin", "Embarked", "TixNum", "FarePP", "Deck")] 
+deck <- deck.df[, c("PassengerId", "Cabin", "Embarked", "TixNum", "TixText", "FarePP", "Deck")] 
 
 ## let's try and fill those missing values from our df that has all available deck info
 
@@ -450,16 +465,20 @@ for(i in 1:dim(titanic.full)[1]){
 
 ## so we basically filled empty cabin info and deck info from tix data
 
+table(titanic.full$Deck, titanic.full$TixText)
+
 install.packages("caTools")
 library("caTools")
 
-train <- titanic.full[c("Survived", "Sex", "Pclass", "Age", "Embarked", "Friend", "Group", "FarePP", "FareGroup", "AgeGroup", "Title", "Deck")]
+train <- titanic.full[c("Survived", "Sex", "Pclass", "Age", "Embarked", "Friend", "Group", "FarePP", "FareGroup", "AgeGroup", "Title", "Deck", "TixNum", "TixText")]
 str(train)
 train$Sex = factor(train$Sex)
 train$Pclass = factor(train$Pclass)
 train$Survived = factor(train$Survived)
 train$Embarked = factor(train$Embarked)
 train$Group = factor(train$Group)
+train$TixNum <- as.numeric(train$TixNum)
+train$TixText = factor(train$TixText)
 
 set.seed(123)
 
@@ -483,7 +502,7 @@ summary(model)
 anova(model, test = "Chisq")
 
 ## Now we are going to assess the predictive ability of our model
-prob_pred <- predict(model, newdata = test, type = 'response') 
+prob_pred <- predict(model, newdata = test, na.action = na.action, type = 'response') 
 y_pred <- ifelse(prob_pred > 0.5,1,0)
 
 table(test$Survived, y_pred >0.5) ## confusion matrix
