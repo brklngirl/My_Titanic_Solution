@@ -425,7 +425,7 @@ table(titanic.full$TravelGroup, titanic.full$Deck)
 table(titanic.full$AgeGroup, titanic.full$TravelGroup)
 ## older people tend to travel in smaller groups, that can be explained that larger groups  very often consist of kids
 
-table(titanic.full$AgeGroup, titanic.full$Friend)
+table(titanic.full$AgeGroup, titanic.full$Other)
 ## the older the people the more they prefer to travel alone or with spouse vs friends
 
 table(titanic.full$Title, titanic.full$Deck)
@@ -459,8 +459,10 @@ aggregate(Survived ~ Pclass + Deck, data=filter(titanic.full, Deck !=''),FUN = f
 
 titanic.full$FemSvv <- NA
 titanic.full$FemSvv <- ifelse(titanic.full$Sex == "female" & titanic.full$Survived == 1, 1, 0)
+titanic.full$FemSvv <- ifelse(is.na(titanic.full$FemSvv==T), 0, titanic.full$FemSvv)
+
 titanic.full$FemSvvPercent <- NA
-titanic.full$FemSvvPercent <- ave(titanic.full$FemSvv, titanic.full[, "TixNum"], FUN= function (x) {sum(x)/length(x)})
+titanic.full$FemSvvPercent <- ifelse(titanic.full$FemSvv ==0, 0, ave(titanic.full$FemSvv, titanic.full[, "TixNum"], FUN= sum)/ave(titanic.full$Sex == "female", titanic.full[, "TixNum"], FUN= sum))
 
 ## I want to try and fill some missing Deck Info
 
@@ -484,6 +486,7 @@ for(i in 1:dim(titanic.full)[1]){
 table(titanic.full$Deck)
 ## This way we predicted deck for additional 23 passengers
 
+titanic.full$Deck[titanic.full$CabinBg ==9] <- "G"
 ## I want to try to assign same cabins? to the people on the same tix
 
 
@@ -507,7 +510,7 @@ titanic.full$TixText[titanic.full$Deck %in% c("A", "B")] <- "PC"
 
 titanic.full$TixBg <- regmatches(titanic.full$TixNum, regexpr("\\d", titanic.full$TixNum))
 
-train <- titanic.full[c("Survived", "Sex", "Pclass", "Age", "Embarked", "Parch", "SibSp", "Other", "Group", "FarePP", "FareGroup", "AgeGroup", "Title", "Deck", "TixNum", "TixBg", "AgeDecades", "FemSvvPercent")]
+train <- titanic.full[c("Survived", "Sex", "Pclass", "Age", "Embarked", "Group", "FarePP", "AgeGroup", "Deck", "TixNum", "FemSvvPercent")]
 str(train)
 train$Sex = factor(train$Sex)
 train$Pclass = factor(train$Pclass)
@@ -515,7 +518,6 @@ train$Survived = factor(train$Survived)
 train$Embarked = factor(train$Embarked)
 train$Group = factor(train$Group)
 train$TixNum <- as.numeric(train$TixNum)
-train$TixBg = factor(train$TixBg)
 
 set.seed(129)
 
@@ -566,14 +568,14 @@ auc <- auc@y.values[[1]]
 
 round(auc, 4)
 
-## we got pretty good result auc = 0.9008
+## we got pretty good result auc = 0.9149
 ## the closer it is to 1 - the better
 
 ##  now we predict test set results
 prob_pred <- predict(model, newdata = test_og)
 y_pred <-ifelse(prob_pred > 0.5, 1, 0)
 results <- data.frame(PassengerID = c(892:1309), Survived = y_pred)
-### write.csv(results, file = "TitanicGlmPrediction 0101 09007.csv", row.names = F, quote = F)
+write.csv(results, file = "TitanicGlmPrediction 0107 09149.csv", row.names = F, quote = F)
 
 ### Decision Tree
 
