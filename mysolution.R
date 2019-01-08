@@ -331,7 +331,19 @@ aggregate(Survived ~ AgeGroup + Sex + Pclass, data = titanic.full, FUN = functio
 ## Now we'll extract titles and last names from name column
 
 titanic.full$LName <- NA
-titanic.full$LName <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern = "\\<[[:alpha:]]+\\>", text = titanic.full$Name))) 
+titanic.full$LName <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern = "\\<\\D{1,2}[[:alpha:]]+\\>", text = titanic.full$Name))) 
+titanic.full$SameLN <- ave(titanic.full$PassengerId, titanic.full[, "LName"], FUN=length)
+
+###ID <-data.frame()
+###titanic.full$ID <- NA
+
+###ID <- titanic.full %>% group_by(LName, TixNum) %>% summarise(LNRepeat = n())
+###ID2 <- data.frame()
+###ID2 <- titanic.full %>% group_by( TixNum, LName) %>% summarise(LNRepeat = n())
+
+ 
+## unlist(rle(as.character(order(titanic.full$LName, decreasing = T, na.last = NA)))$lengths)
+
 
 titanic.full$Title <- NA
 titanic.full$Title <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern = "[[:alpha:]]+\\.", text = titanic.full$Name))) 
@@ -437,17 +449,17 @@ aggregate(Survived ~ Pclass + Deck, data=filter(titanic.full, Deck !=''),FUN = f
 ## and then test it on a train set
 
 
-titanic.full$FemSvv <- NA
-titanic.full$FemSvv <- ifelse(titanic.full$Sex == "female" & titanic.full$Survived == 1, 1, 0)
-titanic.full$FemSvv <- ifelse(is.na(titanic.full$FemSvv==T), 1, titanic.full$FemSvv)
+### titanic.full$FemSvv <- NA
+### titanic.full$FemSvv <- ifelse(titanic.full$Sex == "female" & titanic.full$Survived == 1, 1, 0)
+### titanic.full$FemSvv <- ifelse(is.na(titanic.full$FemSvv==T), 1, titanic.full$FemSvv)
 
-titanic.full$FemSvvPercent <- NA
-titanic.full$FemSvvPercent <- ifelse(titanic.full$FemSvv ==0, 0, ave(titanic.full$FemSvv, titanic.full[, "TixNum"], FUN= sum)/ave(titanic.full$Sex == "female", titanic.full[, "TixNum"], FUN= sum))
+### titanic.full$FemSvvPercent <- NA
+### titanic.full$FemSvvPercent <- ifelse(titanic.full$FemSvv ==0, 0, ave(titanic.full$FemSvv, titanic.full[, "TixNum"], FUN= sum)/ave(titanic.full$Sex == "female", titanic.full[, "TixNum"], FUN= sum))
 
 ## I want to try and fill some missing Deck Info
 
 deck.df <- subset(titanic.full, Deck != '' | is.na(Deck == T))
-deck <- deck.df[, c("Survived", "PassengerId", "Cabin", "Embarked", "TixNum", "TixText", "FarePP", "Deck", "FemSvvPercent")] 
+deck <- deck.df[, c("Survived", "PassengerId", "Cabin", "Embarked", "TixNum", "TixText", "FarePP", "Deck", "LName")] 
 
 ## let's try and fill those missing values from our df that has all available deck info
 
