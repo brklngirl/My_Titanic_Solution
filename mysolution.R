@@ -310,32 +310,29 @@ ggplot(titanic.full, aes(FarePP)) +
 
 ## would love to add survival line to those charts!!!!! maybe even do a violin plot
 
-## based on the chart above we will break down our people into groups by Fare they paid
-titanic.full$FareGroup <- cut(titanic.full$FarePP, 6)
-
 prop.table(table(titanic.full$FareGroup, titanic.full$Survived), margin = 1)
 ## 94% of people with Fare less than $6 perished, but this doesnt give us any new info, 
 ## since these are probably passengers who have a $0 fare
-## so we adjuatsed "cheap" group to incl all fares below $15
 ## thus, 75% of people in that group perished, from people who paid $16-$80, chance are appx. equal,
 ## expensive tix (above $81 had 77% of survival)
-
-aggregate(Survived ~ FareGroup + Pclass, data = titanic.full, FUN = sum)
-aggregate(Survived ~ FareGroup + Pclass, data = titanic.full, FUN = function(x){sum(x) / length(x)})
 
 ## next we'll create Age groups, considering child turns adult when reaches 18 y.o
 titanic.full$Age <- ifelse(titanic.full$Age <= 1, 1, round(titanic.full$Age, 0))
 
-titanic.full$AgeDecades <-NA
-titanic.full$AgeDecades <- round(titanic.full$Age/10, 0)
+### titanic.full$AgeDecades <-NA
+### titanic.full$AgeDecades <- round(titanic.full$Age/10, 0)
 
-titanic.full$AgeGroup <- cut(titanic.full$Age, 8)
+titanic.full$AgeGroup <- cut_interval(titanic.full$Age, 15)
 
 aggregate(Survived ~ AgeGroup + Sex, data = titanic.full, FUN = sum) 
-aggregate(Survived ~ AgeGroup + Sex, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+aggregate(Survived ~ AgeGroup + Sex + Pclass, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 ## all senior females survived
 
-## Now we'll extract titles from name column
+## Now we'll extract titles and last names from name column
+
+titanic.full$LName <- NA
+titanic.full$LName <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern = "\\<[[:alpha:]]+\\>", text = titanic.full$Name))) 
+
 titanic.full$Title <- NA
 titanic.full$Title <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern = "[[:alpha:]]+\\.", text = titanic.full$Name))) 
 
@@ -373,7 +370,7 @@ ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
 
 ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
   geom_bar(aes(fill = factor(Survived)), alpha = 0.9, position = "fill") +
-  facet_wrap(~FamGroup) +
+  facet_wrap(~Group) +
   scale_fill_brewer(palette = "Set1") +
   scale_y_continuous(labels=percent, breaks=seq(0,1,0.1)) +
   ylab("Percentage") + 
@@ -381,6 +378,9 @@ ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+aggregate(Survived ~ Group + Title, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 
 ## Large Groups have the worst survival rates for all titles
 
@@ -436,8 +436,6 @@ aggregate(Survived ~ Pclass + Deck, data=filter(titanic.full, Deck !=''),FUN = f
 ## then we split our new dataset into two chunks, one to create a model
 ## and then test it on a train set
 
-###titanic.full$LName <- NA
-###titanic.full$LName <- 
 
 titanic.full$FemSvv <- NA
 titanic.full$FemSvv <- ifelse(titanic.full$Sex == "female" & titanic.full$Survived == 1, 1, 0)
