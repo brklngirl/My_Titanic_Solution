@@ -1,25 +1,3 @@
-## PLAN:
-
-## - Study the data set
-## - check for missing values
-## - replace NA's
-## - change variables types if needed
-## - create additional vaues from what is given if needed
-## - try and spot patterns
-## - join both datasets into one
-
-## - create a model to predict missing Age
-## - create FamSize, AgeGroup variables
-## - create initial glm(), find what variables contribute the most/the least; 
-## - test model against test part of a train set
-
-## - perform text analytics on Name, Tix, Cabin
-## - find matches among people in same cabins
-## - does survival depends on CabinCat?
-## - does survival depends on a ticket number
-## - what do letters in tickets mean
-## - improve model
-
 ## set working directory
 setwd("C:/Users/Lenovo/Documents/R/R WD")
 
@@ -202,11 +180,11 @@ titanic.full$Age <- imputed.age
 table(is.na(titanic.full$Age))
 
 ## let's check if any gender had better chances at survival
-table(titanic.train$Sex, titanic.train$Survived)
+aggregate(Survived ~ Sex, titanic.train, FUN = function(x) {sum(x)/length(x)})
 
 ## let's find out if certain cabin class passengers got more chance of surviving
 ## would like to see it as proportions? just a thought for a future
-prop.table(table(titanic.train$Pclass, titanic.train$Survived))
+## prop.table(table(titanic.train$Pclass, titanic.train$Survived))
 
 ## I want to see if there is a difference btw sex survival by different Pclass
 
@@ -296,6 +274,8 @@ titanic.full$Group <- ifelse(titanic.full$TravelGroup == 1, "Single", ifelse(tit
 mosaicplot(~Group + Survived, data = titanic.full, main = "Survival rate based on Family Size", shade = T)
 
 aggregate(Survived ~ Sex + TravelGroup, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+aggregate(Survived ~ Sex + Pclass + Group, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+
 ## interestingly, Fare seems to indicate amount paid per ticket, not per person
 ## thus, if 5 people travel together, Fare is a what was paid for them alltogether
 ## lets calculate Fare per Person
@@ -312,9 +292,11 @@ titanic.full$FarePP[is.na(titanic.full$FarePP == T)] = median(filter(titanic.ful
 summary(titanic.full$FarePP)  
 
 titanic.full$FarePP <- trunc(titanic.full$FarePP)
+titanic.full$FareGroup <- NA
+titanic.full$FareGroup <- cut_number(titanic.full$FarePP, 4)
 
-aggregate(Survived~ FarePP + Pclass, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
-aggregate(Survived~ FarePP + Pclass, data = titanic.full, FUN = sum)
+aggregate(Survived~ FareGroup + Pclass, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+aggregate(Survived~ FareGroup + Pclass, data = titanic.full, FUN = sum)
 
 ggplot(titanic.full, aes(FarePP)) +
   geom_density(fill = "blue", alpha = 0.5) + 
@@ -459,7 +441,7 @@ aggregate(Survived ~ Pclass + Deck, data=filter(titanic.full, Deck !=''),FUN = f
 
 titanic.full$FemSvv <- NA
 titanic.full$FemSvv <- ifelse(titanic.full$Sex == "female" & titanic.full$Survived == 1, 1, 0)
-titanic.full$FemSvv <- ifelse(is.na(titanic.full$FemSvv==T), 0, titanic.full$FemSvv)
+titanic.full$FemSvv <- ifelse(is.na(titanic.full$FemSvv==T), 1, titanic.full$FemSvv)
 
 titanic.full$FemSvvPercent <- NA
 titanic.full$FemSvvPercent <- ifelse(titanic.full$FemSvv ==0, 0, ave(titanic.full$FemSvv, titanic.full[, "TixNum"], FUN= sum)/ave(titanic.full$Sex == "female", titanic.full[, "TixNum"], FUN= sum))
@@ -510,7 +492,7 @@ titanic.full$TixText[titanic.full$Deck %in% c("A", "B")] <- "PC"
 
 titanic.full$TixBg <- regmatches(titanic.full$TixNum, regexpr("\\d", titanic.full$TixNum))
 
-train <- titanic.full[c("Survived", "Sex", "Pclass", "Age", "Embarked", "Group", "FarePP", "AgeGroup", "Deck", "TixNum", "FemSvvPercent")]
+train <- titanic.full[c("Survived", "Sex", "Pclass", "Age", "Embarked", "Group", "FarePP", "AgeGroup", "Deck", "TixNum")]
 str(train)
 train$Sex = factor(train$Sex)
 train$Pclass = factor(train$Pclass)
