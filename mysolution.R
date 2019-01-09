@@ -333,14 +333,33 @@ aggregate(Survived ~ AgeGroup + Sex + Pclass, data = titanic.full, FUN = functio
 titanic.full$LName <- NA
 titanic.full$LName <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern = "\\<\\D{1,2}[[:alpha:]]+\\>", text = titanic.full$Name))) 
 titanic.full$SameLN <- ave(titanic.full$PassengerId, titanic.full[, "LName"], FUN=length)
-
+titanic.full$ID <- titanic.full %>% group_by( TixNum, LName) %>% summarise(LNRepeat = n())
 ###ID <-data.frame()
 ###titanic.full$ID <- NA
 
 ###ID <- titanic.full %>% group_by(LName, TixNum) %>% summarise(LNRepeat = n())
 ###ID2 <- data.frame()
-###ID2 <- titanic.full %>% group_by( TixNum, LName) %>% summarise(LNRepeat = n())
+install.packages("tidyr")
+library("tidyr")
 
+## we want to see how many unique Last Name & Tix combinations there are
+LNRepeat <- data.frame()
+LNRepeat <- titanic.full %>% group_by(LName, TixNum ) %>% summarise(LNRepeat = n()) 
+
+## since it gives us ony unique values, we have less grouped values than our nitial df
+## so I want to create a loop to fill LN & Tix combinations in our main df
+
+for(i in 1:dim(titanic.full)[1]){
+  
+  x <- integer()
+  for(x in 1:dim(LNRepeat)[1]){
+    
+    if(titanic.full$LName[i] == LNRepeat$LName[x] &
+       titanic.full$TixNum[i] == LNRepeat$TixNum[x]) {
+      titanic.full$LNTix[i] <- LNRepeat$LNRepeat[x]
+    }
+  }
+}
  
 ## unlist(rle(as.character(order(titanic.full$LName, decreasing = T, na.last = NA)))$lengths)
 
