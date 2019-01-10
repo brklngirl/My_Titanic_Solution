@@ -11,6 +11,8 @@ install.packages("ROCR")
 install.packages("rpart")
 install.packages("rpart.plot")
 install.packages("randomForest")
+install.packages("tidyr")
+
 library("Amelia")
 library("dplyr")
 library("ggplot2")
@@ -21,7 +23,7 @@ library("ROCR")
 library("rpart")
 library("rpart.plot")
 library("randomForest")
-
+library("tidyr")
 ##read in some data; read.csv or read.table by default reads our columns as factors
 titanic.train <- read.csv(file = "train.csv", header = T, stringsAsFactors = F, na.strings = c(" "))
 titanic.test <- read.csv(file = "test.csv", header = T, stringsAsFactors = F,na.strings = c(" "))
@@ -224,8 +226,6 @@ table(titanic.full$Family)
 ## I want to add a column to see how many people could travel together on the same ticket #
 ## assuming sometimes a group of friends or a family w/nanny could travel together
 
-titanic.full$TixText <- NA
-titanic.full$TixNum <- NA
 titanic.full$TixNum <- ifelse(is.na((str_extract(titanic.full$Ticket, "\\d{3,}"))== T), 0, str_extract(titanic.full$Ticket, "\\d{3,}"))
 titanic.full$TixText <- gsub("[.]","",str_to_upper(ifelse(is.na((str_extract(titanic.full$Ticket, "\\D[[:graph:][:space:]]*(?=[:space:]\\d{3,}?)"))== T), ##check if the result is na
                                                                       str_extract(titanic.full$Ticket,"\\D[[:graph:][:space:]]*(?![:space:]\\d{3,}?)"),   ## if yes, bring what is not followed by min 3digits
@@ -236,7 +236,7 @@ levels(factor(titanic.full$TixText))
 
 titanic.full$TixBg <- regmatches(titanic.full$TixNum, regexpr("\\d", titanic.full$TixNum))
 
-### ---
+## Let's try to clean the text values to merge duplicates 
 titanic.full$TixText <- sub(" ", "/", titanic.full$TixText)
 titanic.full$TixText <- sub("A/", "A", titanic.full$TixText)
 titanic.full$TixText <- sub("AQ/", "AQ", titanic.full$TixText)
@@ -261,12 +261,18 @@ table(titanic.full$Embarked, titanic.full$TixText)
 ## while SC/Paric and SC/AH Basle are exclusive to Cherbourg
 table(titanic.full$Pclass, titanic.full$TixText)
 
-###___
+## Now I want to see how many persons are traveling under each ticket number
 titanic.full$SameTix <- ifelse(titanic.full$TixNum == 0, 1, ave(titanic.full$PassengerId, titanic.full[, "TixNum"], FUN=length))
+
+## next, we'd like to find out if some passengers tracel with non-family members
 titanic.full$Other <- ifelse(titanic.full$SameTix >= titanic.full$Family, titanic.full$SameTix - titanic.full$Family, 0)
 
+## Travel group will give us more precise count of people traveling together in a group
 titanic.full$TravelGroup <- titanic.full$Family + titanic.full$Other
 table(titanic.full$TravelGroup)
+## while we see that total number of people in 11 and 8-member group are multiple of 11 and 8
+## we have 37 people in a 7-member group, that means we probably missassigned someone
+## we will return to it later when working with Last Names
 
 ## More than half of passengers are traveling alone, biggest family has 11 members
 ## we will group them together
@@ -319,9 +325,6 @@ prop.table(table(titanic.full$FareGroup, titanic.full$Survived), margin = 1)
 ## next we'll create Age groups, considering child turns adult when reaches 18 y.o
 titanic.full$Age <- ifelse(titanic.full$Age <= 1, 1, round(titanic.full$Age, 0))
 
-### titanic.full$AgeDecades <-NA
-### titanic.full$AgeDecades <- round(titanic.full$Age/10, 0)
-
 titanic.full$AgeGroup <- cut_interval(titanic.full$Age, 15)
 
 aggregate(Survived ~ AgeGroup + Sex, data = titanic.full, FUN = sum) 
@@ -333,20 +336,13 @@ aggregate(Survived ~ AgeGroup + Sex + Pclass, data = titanic.full, FUN = functio
 titanic.full$LName <- NA
 titanic.full$LName <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern = "\\<\\D{1,2}[[:alpha:]]+\\>", text = titanic.full$Name))) 
 titanic.full$SameLN <- ave(titanic.full$PassengerId, titanic.full[, "LName"], FUN=length)
-titanic.full$ID <- titanic.full %>% group_by( TixNum, LName) %>% summarise(LNRepeat = n())
-###ID <-data.frame()
-###titanic.full$ID <- NA
-
-###ID <- titanic.full %>% group_by(LName, TixNum) %>% summarise(LNRepeat = n())
-###ID2 <- data.frame()
-install.packages("tidyr")
-library("tidyr")
+### titanic.full$LNTixCombo <- titanic.full %>% group_by( TixNum, LName) %>% summarise(LNRepeat = n())
 
 ## we want to see how many unique Last Name & Tix combinations there are
 LNRepeat <- data.frame()
 LNRepeat <- titanic.full %>% group_by(LName, TixNum ) %>% summarise(LNRepeat = n()) 
 
-## since it gives us ony unique values, we have less grouped values than our nitial df
+## since it gives us ony unique values, we get less grouped values than our initial df
 ## so I want to create a loop to fill LN & Tix combinations in our main df
 
 for(i in 1:dim(titanic.full)[1]){
@@ -361,8 +357,17 @@ for(i in 1:dim(titanic.full)[1]){
   }
 }
  
-## unlist(rle(as.character(order(titanic.full$LName, decreasing = T, na.last = NA)))$lengths)
+## I want to see how many different tickets we have per last name
+###TixRepeat <- data.frame()
+###TixRepeat<- titanic.full %>% count(LName, Tix = n_distinct(TixNum)) ## how many tickets per last name ?
+###TixRepeat2<- titanic.full %>% count(LName, TixNum) ## how many tickets per last name ???
 
+### !!!  titanic.full$TixLN <- ave(titanic.full$LName, titanic.full[, "TixNum"], FUN=length) - same as sametix; maybe do a for loop hmm, 
+
+## I want to see if what is common between people who travels with non-family memebrs
+NonFamGrp <- data.frame()
+NonFamGrp <- filter(titanic.full, Other >=1 & TravelGroup ==(titanic.full$Other +1))
+## there are few cases when people with the same LName on the same ticket were marked as havin no family onboard
 
 titanic.full$Title <- NA
 titanic.full$Title <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern = "[[:alpha:]]+\\.", text = titanic.full$Name))) 
@@ -501,7 +506,7 @@ titanic.full$Deck[titanic.full$CabinBg ==9] <- "G"
 ## I want to try to assign same cabins? to the people on the same tix
 
 
-for(i in 1:dim(titanic.full)[1]){
+### for(i in 1:dim(titanic.full)[1]){
   
   x <- integer()
   for(x in 1:dim(deck)[1]){
@@ -510,7 +515,7 @@ for(i in 1:dim(titanic.full)[1]){
       titanic.full$Cabin[i] <- deck$Cabin[x]
     }
   }
-}
+} ### some of the same tix have different cabins mentioned
 
 
 ## so we basically filled empty cabin info and deck info from tix data
