@@ -282,6 +282,11 @@ mosaicplot(~Group + Survived, data = titanic.full, main = "Survival rate based o
 aggregate(Survived ~ Sex + TravelGroup, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 aggregate(Survived ~ Sex + Pclass + Group, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 
+## we will create a table of chance of survival based on gender, pclass and a size of travel group
+SexPclassGrp <- data.frame()
+titanic.full$SexPclassGrp <- paste(titanic.full$Pclass, titanic.full$Sex, titanic.full$Group, sep =" ")
+SexPclassGrp <- aggregate(Survived ~ SexPclassGrp, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+
 ## interestingly, Fare seems to indicate amount paid per ticket, not per person
 ## thus, if 5 people travel together, Fare is a what was paid for them alltogether
 ## lets calculate Fare per Person
@@ -514,9 +519,11 @@ titanic.full$Deck[titanic.full$CabinBg ==9] <- "G"
     if(titanic.full$TixNum[i] == deck$TixNum[x]) {
       titanic.full$Cabin[i] <- deck$Cabin[x]
     }
-  }
-} ### some of the same tix have different cabins mentioned
-
+  } ### some of the same tix have different cabins mentioned
+  
+combinations <- data.frame()
+combinations <- expand(titanic.full, nesting(TixNum, Cabin))
+fc<-filter(combinations, nchar(TixNum)==5)
 
 ## so we basically filled empty cabin info and deck info from tix data
 
@@ -525,6 +532,10 @@ titanic.full$TixText[titanic.full$Deck %in% c("A", "B")] <- "PC"
 ## titanic.full$TixText[titanic.full$Deck %in% c("A", "B")] <- "PC"
 
 titanic.full$TixBg <- regmatches(titanic.full$TixNum, regexpr("\\d", titanic.full$TixNum))
+table(titanic.full$TixBg, titanic.full$Deck, titanic.full$Pclass)
+### firstclass <- filter(titanic.full, Pclass ==2 & TixBg !=2)
+
+
 
 train <- titanic.full[c("Survived", "Sex", "Pclass", "Age", "Embarked", "Group", "FarePP", "AgeGroup", "Deck", "TixNum")]
 str(train)
