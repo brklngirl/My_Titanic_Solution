@@ -12,6 +12,8 @@ install.packages("rpart")
 install.packages("rpart.plot")
 install.packages("randomForest")
 install.packages("tidyr")
+install.packages("purrr")
+
 
 library("Amelia")
 library("dplyr")
@@ -24,6 +26,8 @@ library("rpart")
 library("rpart.plot")
 library("randomForest")
 library("tidyr")
+library("purrr")
+
 ##read in some data; read.csv or read.table by default reads our columns as factors
 titanic.train <- read.csv(file = "train.csv", header = T, stringsAsFactors = F, na.strings = c(" "))
 titanic.test <- read.csv(file = "test.csv", header = T, stringsAsFactors = F,na.strings = c(" "))
@@ -284,8 +288,20 @@ aggregate(Survived ~ Sex + Pclass + Group, data = titanic.full, FUN = function(x
 
 ## we will create a table of chance of survival based on gender, pclass and a size of travel group
 SexPclassGrp <- data.frame()
-titanic.full$SexPclassGrp <- paste(titanic.full$Pclass, titanic.full$Sex, titanic.full$Group, sep =" ")
+titanic.full$SexPclassGrp <- paste(titanic.full$Pclass, titanic.full$Title, titanic.full$Group, sep =" ")
 SexPclassGrp <- aggregate(Survived ~ SexPclassGrp, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+
+for(i in 1:dim(titanic.full)[1]){
+  
+  x <- integer()
+  for(x in 1:dim(SexPclassGrp)[1]){
+    
+    if(titanic.full$SexPclassGrp[i] == SexPclassGrp$SexPclassGrp[x]) {
+      titanic.full$SPGSvv[i] <- SexPclassGrp$Survived[x]
+    }
+  }
+}
+
 
 ## interestingly, Fare seems to indicate amount paid per ticket, not per person
 ## thus, if 5 people travel together, Fare is a what was paid for them alltogether
@@ -350,7 +366,7 @@ LNRepeat <- titanic.full %>% group_by(LName, TixNum ) %>% summarise(LNRepeat = n
 ## since it gives us ony unique values, we get less grouped values than our initial df
 ## so I want to create a loop to fill LN & Tix combinations in our main df
 
-for(i in 1:dim(titanic.full)[1]){
+### for(i in 1:dim(titanic.full)[1]){
   
   x <- integer()
   for(x in 1:dim(LNRepeat)[1]){
@@ -360,7 +376,7 @@ for(i in 1:dim(titanic.full)[1]){
       titanic.full$LNTix[i] <- LNRepeat$LNRepeat[x]
     }
   }
-}
+### }
  
 ## I want to see how many different tickets we have per last name
 ###TixRepeat <- data.frame()
@@ -371,7 +387,7 @@ for(i in 1:dim(titanic.full)[1]){
 
 ## I want to see if what is common between people who travels with non-family memebrs
 NonFamGrp <- data.frame()
-NonFamGrp <- filter(titanic.full, Other >=1 & TravelGroup ==(titanic.full$Other +1))
+NonFamGrp <- filter(titanic.full, Other >= 1 & TravelGroup ==(titanic.full$Other +1))
 ## there are few cases when people with the same LName on the same ticket were marked as havin no family onboard
 
 titanic.full$Title <- NA
@@ -393,6 +409,16 @@ levels(titanic.full$Title) <- gsub("[.]", "", ifelse(TL %in%  c("Don.", "Major."
 
 ## Let's check, if we got the desired large groups of Title
 table(titanic.full$Title, titanic.full$Sex)
+filter(titanic.full, Title =="Dr" & titanic.full$Survived == 1)
+## the only Dr who we don't know if survived, emb in S, paid $27, has cabin info and is 53 y.e;
+## however his tix starts with 3, and he travels in a family of 3, and has a child
+## let's check if child svvd
+filter(titanic.full, LName == "Dodge")
+## He did!!!! Since his wife is 54 y.o, 1st class ulso unknown if svvd, I will assume - they both did
+titanic.full$SPGSvv[titanic.full$LName == "Dodge"] <- 1
+
+halfsvv <- data.frame()
+halfsvv <- filter(titanic.full, SPGSvv==0.5)
 
 mosaicplot(~Title + Survived, data = titanic.full, main = "Survival rate based on Title", shade = T)
 
@@ -523,7 +549,7 @@ titanic.full$Deck[titanic.full$CabinBg ==9] <- "G"
   
 combinations <- data.frame()
 combinations <- expand(titanic.full, nesting(TixNum, Cabin))
-fc<-filter(combinations, nchar(TixNum)==5)
+fc<-filter(combinations, nchar(TixNum)==5) ## checking what is common of anything between tickets of the same lenght
 
 ## so we basically filled empty cabin info and deck info from tix data
 
