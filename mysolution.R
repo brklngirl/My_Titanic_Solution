@@ -271,12 +271,59 @@ titanic.full$SameTix <- ifelse(titanic.full$TixNum == 0, 1, ave(titanic.full$Pas
 ## next, we'd like to find out if some passengers tracel with non-family members
 titanic.full$Other <- ifelse(titanic.full$SameTix >= titanic.full$Family, titanic.full$SameTix - titanic.full$Family, 0)
 
+## Now we'll extract last names from name column
+titanic.full$LName <- NA
+titanic.full$LName <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern = "\\<\\D{1,2}[[:alpha:]]+\\>", text = titanic.full$Name))) 
+titanic.full$EmbLN <- paste(titanic.full$LName, titanic.full$Embarked, sep = " ") 
+
+titanic.full$SameLN <- ave(titanic.full$PassengerId, titanic.full[, "LName"], FUN=length)
+titanic.full$SameEmbLN <- ave(titanic.full$PassengerId, titanic.full[, "EmbLN"], FUN=length)
+
+## Same cabins&tix combinations, since cabins on different decks can have same number
+titanic.full$CbTix <- paste(titanic.full$Pclass, titanic.full$Cabin, titanic.full$TixNum, sep = " ")
+titanic.full$SameCb <-ave(titanic.full$PassengerId, titanic.full[, "CbTix"], FUN=length) 
 ## Travel group will give us more precise count of people traveling together in a group
-titanic.full$TravelGroup <- titanic.full$Family + titanic.full$Other
+titanic.full$TravelGroup <- NA 
+  
+for(i in 1:dim(titanic.full)[1]) {
+  titanic.full$TravelGroup[i] = max(titanic.full$SameTix[i], titanic.full$SameEmbLN[i], titanic.full$SameCb[i])
+}
+  
+
+## I want to see if what is common between people who travels with non-family members
+NonFamGrp <- data.frame()
+NonFamGrp <- filter(titanic.full, Other >= 1 & TravelGroup == (titanic.full$Other +1))
+## there are few cases when people with the same LName on the same ticket were marked as having no family onboard
+
+titanic.full$CabinSplit <- NA
+
+for(i in 1:dim(titanic.full)[1]){
+    
+  titanic.full$CabinSplit[i] <- ifelse(nchar(titanic.full$Cabin[i]) ==0, "", strsplit(titanic.full$Cabin[i], "[, ]"))
+  
+ }
+
+titanic.full$id <- NA
+
+
 table(titanic.full$TravelGroup)
 ## while we see that total number of people in 11 and 8-member group are multiple of 11 and 8
-## we have 37 people in a 7-member group, that means we probably missassigned someone
+## we have 27 people in a 7-member group, that means we probably missassigned someone
 ## we will return to it later when working with Last Names
+
+
+
+grpdiscrep <- filter(titanic.full, TravelGroup ==7)
+checkout <- filter(titanic.full, LName %in% c("Davies", "White"))
+
+#titanic.full$TravelGroupFixed <- ifelse(titanic.full$LName == "Andersson", 11, titanic.full$TravelGroup)
+titanic.full$TravelGroupFixed <- ifelse(titanic.full$TixNum ==35281, 2,  titanic.full$TravelGroup)
+titanic.full$TravelGroupFixed <- ifelse(titanic.full$TixNum %in% (29104:29106), 6,  titanic.full$TravelGroupFixed)
+titanic.full$TravelGroupFixed <- ifelse(titanic.full$LName == "Kink", 5, titanic.full$TravelGroupFixed)
+
+grpdiscrep <- filter(titanic.full, TravelGroupFixed %in% c(2,4) & SameTix != TravelGroup)
+table(titanic.full$TravelGroupFixed)
+
 
 ## More than half of passengers are traveling alone, biggest family has 11 members
 ## we will group them together
@@ -285,23 +332,6 @@ mosaicplot(~Group + Survived, data = titanic.full, main = "Survival rate based o
 
 aggregate(Survived ~ Sex + TravelGroup, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 aggregate(Survived ~ Sex + Pclass + Group, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
-
-## we will create a table of chance of survival based on gender, pclass and a size of travel group
-SexPclassGrp <- data.frame()
-titanic.full$SexPclassGrp <- paste(titanic.full$Pclass, titanic.full$Title, titanic.full$Group, sep =" ")
-SexPclassGrp <- aggregate(Survived ~ SexPclassGrp, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
-
-for(i in 1:dim(titanic.full)[1]){
-  
-  x <- integer()
-  for(x in 1:dim(SexPclassGrp)[1]){
-    
-    if(titanic.full$SexPclassGrp[i] == SexPclassGrp$SexPclassGrp[x]) {
-      titanic.full$SPGSvv[i] <- SexPclassGrp$Survived[x]
-    }
-  }
-}
-
 
 ## interestingly, Fare seems to indicate amount paid per ticket, not per person
 ## thus, if 5 people travel together, Fare is a what was paid for them alltogether
@@ -352,11 +382,7 @@ aggregate(Survived ~ AgeGroup + Sex, data = titanic.full, FUN = sum)
 aggregate(Survived ~ AgeGroup + Sex + Pclass, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 ## all senior females survived
 
-## Now we'll extract titles and last names from name column
 
-titanic.full$LName <- NA
-titanic.full$LName <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern = "\\<\\D{1,2}[[:alpha:]]+\\>", text = titanic.full$Name))) 
-titanic.full$SameLN <- ave(titanic.full$PassengerId, titanic.full[, "LName"], FUN=length)
 ### titanic.full$LNTixCombo <- titanic.full %>% group_by( TixNum, LName) %>% summarise(LNRepeat = n())
 
 ## we want to see how many unique Last Name & Tix combinations there are
@@ -390,6 +416,7 @@ NonFamGrp <- data.frame()
 NonFamGrp <- filter(titanic.full, Other >= 1 & TravelGroup == (titanic.full$Other +1))
 ## there are few cases when people with the same LName on the same ticket were marked as having no family onboard
 
+## Next we will extract titles from the name of the passenger
 titanic.full$Title <- NA
 titanic.full$Title <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern = "[[:alpha:]]+\\.", text = titanic.full$Name))) 
 
@@ -409,25 +436,6 @@ levels(titanic.full$Title) <- gsub("[.]", "", ifelse(TL %in%  c("Don.", "Major."
 
 ## Let's check, if we got the desired large groups of Title
 table(titanic.full$Title, titanic.full$Sex)
-filter(titanic.full, Title =="Dr" & titanic.full$Survived == 1)
-## the only Dr who we don't know if survived, emb in S, paid $27, has cabin info and is 53 y.e;
-## however his tix starts with 3, and he travels in a family of 3, and has a child
-## let's check if child svvd
-filter(titanic.full, LName == "Dodge")
-## He did!!!! Since his wife is 54 y.o, 1st class ulso unknown if svvd, I will assume - they both did
-titanic.full$SPGSvv[titanic.full$Title =="Miss" & titanic.full$Group == "Small"] <- 0.84
-titanic.full$SPGSvv[titanic.full$LName == "Dodge"] <- 1
-titanic.full$SPGSvv[titanic.full$Title =="Master" & titanic.full$Group == "Small"] <- 1
-titanic.full$SPGSvv[titanic.full$Title =="Master" & titanic.full$Group != "Small"] <- 0
-titanic.full$SPGSvv[titanic.full$Sex =="female" & titanic.full$Group == "Small" & titanic.full$Pclass == 1] <- 1
-titanic.full$SPGSvv[titanic.full$Sex =="female" & titanic.full$Group == "Large" & titanic.full$Pclass == 2] <- 1
-titanic.full$SPGSvv[titanic.full$Sex =="male" & titanic.full$Group == "Large" & titanic.full$Pclass == 2] <- 0
-titanic.full$SPGSvv[titanic.full$Sex =="male" & titanic.full$Age <= 11.5 & titanic.full$Pclass != 3] <- 1
-titanic.full$SPGSvv[titanic.full$Sex =="female" & between(titanic.full$Age, 6, 12) & titanic.full$Pclass == 3] <- 0
-titanic.full$SPGSvv[titanic.full$Sex =="female" & between(titanic.full$Age, 37, 48) & titanic.full$Pclass == 3] <- 0
-titanic.full$SPGSvv[titanic.full$Age >= 74.7] <- 1
-titanic.full$SPGSvv[between(titanic.full$Age, 64.2, 74.7)] <- 0
-titanic.full$SPGSvv[titanic.full$FarePP ==0] <- 0
 
 mosaicplot(~Title + Survived, data = titanic.full, main = "Survival rate based on Title", shade = T)
 
@@ -459,15 +467,47 @@ ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
 aggregate(Survived ~ Group + Title, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 ## Large Groups have the worst survival rates for all titles
 
-grpdiscrep <- filter(titanic.full, TravelGroup ==6)
+## now we will create a table of chance of survival based on gender, pclass and a size of travel group
 
-checkout <- filter(titanic.full, "Wennerstrom" %in% Name)
+SexPclassGrp <- data.frame()
+titanic.full$SexPclassGrp <- paste(titanic.full$Pclass, titanic.full$Title, titanic.full$Group, sep =" ")
+SexPclassGrp <- aggregate(Survived ~ SexPclassGrp, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 
-titanic.full$TravelGroupFixed <- ifelse(titanic.full$LName == "Andersson", 11, titanic.full$TravelGroup)
-titanic.full$TravelGroupFixed <- ifelse(titanic.full$TixNum %in% (29104:29106), 6,  titanic.full$TravelGroupFixed)
+for(i in 1:dim(titanic.full)[1]){
+  
+  x <- integer()
+  for(x in 1:dim(SexPclassGrp)[1]){
+    
+    if(titanic.full$SexPclassGrp[i] == SexPclassGrp$SexPclassGrp[x]) {
+      titanic.full$SPGSvv[i] <- SexPclassGrp$Survived[x]
+    }
+  }
+}
 
-grpdiscrep <- filter(titanic.full, TravelGroupFixed ==5)
-table(titanic.full$TravelGroupFixed)
+
+filter(titanic.full, Title =="Dr" & titanic.full$Survived == 1)
+## the only Dr who we don't know if survived, emb in S, paid $27, has cabin info and is 53 y.e;
+## however his tix starts with 3, and he travels in a family of 3, and has a child
+## let's check if child svvd
+filter(titanic.full, LName == "Dodge")
+## He did!!!! Since his wife is 54 y.o, 1st class ulso unknown if svvd, I will assume - they both did
+
+titanic.full$SPGSvv[titanic.full$LName == "Dodge"] <- 1
+
+## We will assign other probabilities that we are certain about
+titanic.full$SPGSvv[titanic.full$Title =="Miss" & titanic.full$Group == "Small"] <- 0.84
+titanic.full$SPGSvv[titanic.full$Title =="Master" & titanic.full$Group == "Small"] <- 1
+titanic.full$SPGSvv[titanic.full$Title =="Master" & titanic.full$Group != "Small"] <- 0
+titanic.full$SPGSvv[titanic.full$Sex =="female" & titanic.full$Group == "Small" & titanic.full$Pclass == 1] <- 1
+titanic.full$SPGSvv[titanic.full$Sex =="female" & titanic.full$Group == "Large" & titanic.full$Pclass == 2] <- 1
+titanic.full$SPGSvv[titanic.full$Sex =="male" & titanic.full$Group == "Large" & titanic.full$Pclass == 2] <- 0
+titanic.full$SPGSvv[titanic.full$Sex =="male" & titanic.full$Age <= 11.5 & titanic.full$Pclass != 3] <- 1
+titanic.full$SPGSvv[titanic.full$Sex =="female" & between(titanic.full$Age, 6, 12) & titanic.full$Pclass == 3] <- 0
+titanic.full$SPGSvv[titanic.full$Sex =="female" & between(titanic.full$Age, 37, 48) & titanic.full$Pclass == 3] <- 0
+titanic.full$SPGSvv[titanic.full$Age >= 74.7] <- 1
+titanic.full$SPGSvv[between(titanic.full$Age, 64.2, 74.7)] <- 0
+titanic.full$SPGSvv[titanic.full$FarePP ==0] <- 0
+
 ## lets research Cabin info
 titanic.full$Deck <- NA
 titanic.full$Deck <- factor(substr(titanic.full$Cabin, start =1, stop =1))
@@ -568,6 +608,8 @@ titanic.full$TixText[titanic.full$Deck %in% c("A", "B")] <- "PC"
 ## titanic.full$TixText[titanic.full$Deck %in% c("A", "B")] <- "PC"
 
 titanic.full$TixBg <- regmatches(titanic.full$TixNum, regexpr("\\d", titanic.full$TixNum))
+titanic.full$TixBg2 <- regmatches(titanic.full$TixNum, regexpr("\\d{1,2}", titanic.full$TixNum))
+
 table(titanic.full$TixBg, titanic.full$Deck, titanic.full$Pclass)
 ### firstclass <- filter(titanic.full, Pclass ==2 & TixBg !=2)
 
