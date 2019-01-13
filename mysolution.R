@@ -274,6 +274,12 @@ titanic.full$Other <- ifelse(titanic.full$SameTix >= titanic.full$Family, titani
 ## Now we'll extract last names from name column
 titanic.full$LName <- NA
 titanic.full$LName <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern = "\\<\\D{1,2}[[:alpha:]]+\\>", text = titanic.full$Name))) 
+
+titanic.full$MaidenName <- NA
+titanic.full$MaidenName <- str_extract(titanic.full$Name, "\\s[[:alpha:]]+(?=\\))")
+  #unlist(regmatches(x = titanic.full$Name, regexpr(pattern = "\\s\\<([[:alpha:]]+)?<=\\)", text = titanic.full$Name))) 
+
+
 titanic.full$EmbLN <- paste(titanic.full$LName, titanic.full$Embarked, sep = " ") 
 
 titanic.full$SameLN <- ave(titanic.full$PassengerId, titanic.full[, "LName"], FUN=length)
