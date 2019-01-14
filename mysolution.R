@@ -238,13 +238,21 @@ titanic.full$TixText <- gsub("[.]","",str_to_upper(ifelse(is.na((str_extract(tit
 levels(factor(titanic.full$TixText)) 
 
 
-titanic.full$TixBg <- regmatches(titanic.full$TixNum, regexpr("\\d", titanic.full$TixNum))
+titanic.full$TixBg1 <- regmatches(titanic.full$TixNum, regexpr("\\d", titanic.full$TixNum))
+titanic.full$TixBg <- NA
+titanic.full$nchartix <- nchar(titanic.full$TixNum)
+for(i in 1:dim(titanic.full)[1]) {
+    if(titanic.full$nchartix[i]<= 4) {titanic.full$TixBg[i] <- regmatches(titanic.full$TixNum[i], regexpr("\\d{1,2}", titanic.full$TixNum[i]))
+  }    else titanic.full$TixBg[i] <- regmatches(titanic.full$TixNum[i], regexpr("\\d{3}", titanic.full$TixNum[i])) 
+
+}
+
 
 ## Let's try to clean the text values to merge duplicates 
 titanic.full$TixText <- sub(" ", "/", titanic.full$TixText)
 titanic.full$TixText <- sub("A/", "A", titanic.full$TixText)
 titanic.full$TixText <- sub("AQ/", "AQ", titanic.full$TixText)
-titanic.full$TixText <- sub("WE/", "WE", titanic.full$TixText)
+titanic.full$TixText <- sub("WE/", "WE",titanic.full$TixText)
 titanic.full$TixText <- sub("AH/BASLE", "AH", titanic.full$TixText)
 titanic.full$TixText <- sub("SO/|STON|SOC|SCO|SOP", "SOTON", titanic.full$TixText)
 titanic.full$TixText <- sub("CASOTON", "SOTON/CA", titanic.full$TixText)
@@ -278,47 +286,51 @@ titanic.full$LName <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern =
 titanic.full$MaidenName <- NA
 titanic.full$MaidenName <- str_extract(titanic.full$Name, "\\s[[:alpha:]]+(?=\\))")
 
-titanic.full$AllNames <- NA
-for(i in 1:dim(titanic.full)[1]) {
+## titanic.full$AllNames <- NA
+## for(i in 1:dim(titanic.full)[1]) {
   
-titanic.full$AllNames[i] <- ifelse(is.na(titanic.full$MaidenName[i] == T), titanic.full$LName[i], titanic.full$MaidenName[i]) ## creating a list, where we sub last name for maiden if available
+## titanic.full$AllNames[i] <- ifelse(is.na(titanic.full$MaidenName[i] == T), titanic.full$LName[i], titanic.full$MaidenName[i]) ## creating a list, where we sub last name for maiden if available
 
-}
+## }
 
 
 
 
 titanic.full$SameLN <- ave(titanic.full$PassengerId, titanic.full[, "LName"], FUN=length) ## how many people with that last name
-titanic.full$SameLN2 <- ave(titanic.full$PassengerId, titanic.full[, "AllNames"], FUN=length)-1 ## checking by maiden name, how many more people in og list with that last name
+## titanic.full$SameLN2 <- ave(titanic.full$PassengerId, titanic.full[, "AllNames"], FUN=length) ## checking by maiden name, how many more people in og list with that last name
 
+## repMaiden <- filter(titanic.full, count(MaidenName) >=2)
+
+titanic.full$aggrid <- paste(titanic.full$Embarked, titanic.full$Pclass, titanic.full$TixBg, nchar(titanic.full$TixNum), sep = " " )
 titanic.full$EmbLN <- paste(titanic.full$LName, titanic.full$Embarked, sep = " ") 
-titanic.full$SameEmbLN <- ave(titanic.full$PassengerId, titanic.full[, "EmbLN"], FUN=length)
+## titanic.full$SameEmbLN <- ave(titanic.full$PassengerId, titanic.full[, "EmbLN"], FUN=length)
 
 ## Same cabins&tix combinations, since cabins on different decks can have same number
-titanic.full$CbTix <- paste(titanic.full$Pclass, titanic.full$Cabin, titanic.full$TixNum, sep = " ")
-titanic.full$SameCb <-ave(titanic.full$PassengerId, titanic.full[, "CbTix"], FUN=length) 
+## titanic.full$CbTix <- paste(titanic.full$Pclass, titanic.full$Cabin, titanic.full$TixNum, sep = " ")
+## titanic.full$SameCb <-ave(titanic.full$PassengerId, titanic.full[, "CbTix"], FUN=length) 
 ## Travel group will give us more precise count of people traveling together in a group
-titanic.full$TravelGroup <- NA 
+
+## titanic.full$TravelGroup <- NA 
   
-for(i in 1:dim(titanic.full)[1]) {
-  titanic.full$TravelGroup[i] = max(titanic.full$SameTix[i], titanic.full$SameEmbLN[i], titanic.full$SameCb[i])
-}
+## for(i in 1:dim(titanic.full)[1]) {
+##   titanic.full$TravelGroup[i] = max(titanic.full$SameTix[i], titanic.full$SameEmbLN[i], titanic.full$SameCb[i])
+## }
   
 
 ## I want to see if what is common between people who travels with non-family members
-NonFamGrp <- data.frame()
-NonFamGrp <- filter(titanic.full, Other >= 1 & TravelGroup == (titanic.full$Other +1))
+## NonFamGrp <- data.frame()
+## NonFamGrp <- filter(titanic.full, Other >= 1 & TravelGroup == (titanic.full$Other +1))
 ## there are few cases when people with the same LName on the same ticket were marked as having no family onboard
 
 
 
 titanic.sorted <- arrange(titanic.full, TixNum, LName, Cabin)
-titanic.sorted$AllCabins <- NA
+titanic.sorted$ID <- NA
 
 
 for(i in 2:dim(titanic.sorted)[1]){
 
-  titanic.sorted$AllCabins[1] = titanic.sorted$Cabin[1]
+  titanic.sorted$ID[1] = titanic.sorted$PassengerId[1]
   
  if(titanic.sorted$TixNum[i] == titanic.sorted$TixNum[i-1]) {
    titanic.sorted$AllCabins[i] <- ifelse(titanic.sorted$Cabin[i] == "", titanic.sorted$Cabin[i-1], 
@@ -343,7 +355,7 @@ for(i in 1:dim(titanic.full)[1]){
  }
 
 
-titanic.full$id <- NA
+## titanic.full$id <- NA
 
 
 table(titanic.full$TravelGroup)
@@ -646,9 +658,6 @@ fc<-filter(combinations, nchar(TixNum)==5) ## checking what is common of anythin
 table(titanic.full$Deck, titanic.full$TixText)
 titanic.full$TixText[titanic.full$Deck %in% c("A", "B")] <- "PC"
 ## titanic.full$TixText[titanic.full$Deck %in% c("A", "B")] <- "PC"
-
-titanic.full$TixBg <- regmatches(titanic.full$TixNum, regexpr("\\d", titanic.full$TixNum))
-titanic.full$TixBg2 <- regmatches(titanic.full$TixNum, regexpr("\\d{1,2}", titanic.full$TixNum))
 
 table(titanic.full$TixBg, titanic.full$Deck, titanic.full$Pclass)
 ### firstclass <- filter(titanic.full, Pclass ==2 & TixBg !=2)
