@@ -281,7 +281,7 @@ titanic.full$MaidenName <- str_extract(titanic.full$Name, "\\s[[:alpha:]]+(?=\\)
 titanic.full$AllNames <- NA
 for(i in 1:dim(titanic.full)[1]) {
   
-titanic.full$AllNames[i] <- ifelse(is.na(titanic.full$MaidenName[i] == T), titanic.full$LName[i], strsplit(paste(titanic.full$LName[i], titanic.full$MaidenName[i], sep = " "), "[ ]"))
+titanic.full$AllNames[i] <- ifelse(is.na(titanic.full$MaidenName[i] == T), titanic.full$LName[i], strsplit(paste(titanic.full$LName[i], titanic.full$MaidenName[i], sep = ""), "\\s"))
 }
 
 
@@ -312,7 +312,7 @@ for(i in 2:dim(titanic.full)[1]){
   ### i need to order df by ticket then by lastname then by cabin
   titanic.full$AllCabins[1] = titanic.full$Cabin[1]
   titanic.full$AllCabins[i] <- ifelse(titanic.full$TixNum[i] == titanic.full$TixNum[i-1],
-                                   ifelse(titanic.full$Cabin[i] == titanic.full$Cabin[i-1],,) ,  )
+                                   ifelse(titanic.full$Cabin[i] == titanic.full$Cabin[i-1],titanic.full$Cabin[i],titanic.full$Cabin[i-1]),  )
   
 }
 
