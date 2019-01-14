@@ -240,9 +240,10 @@ levels(factor(titanic.full$TixText))
 
 titanic.full$TixBg1 <- regmatches(titanic.full$TixNum, regexpr("\\d", titanic.full$TixNum))
 titanic.full$TixBg <- NA
-titanic.full$nchartix <- nchar(titanic.full$TixNum)
+##titanic.full$nchartix <- nchar(titanic.full$TixNum)
+
 for(i in 1:dim(titanic.full)[1]) {
-    if(titanic.full$nchartix[i]<= 4) {titanic.full$TixBg[i] <- regmatches(titanic.full$TixNum[i], regexpr("\\d{1,2}", titanic.full$TixNum[i]))
+    if(nchar(titanic.full$TixNum[i])<= 4) {titanic.full$TixBg[i] <- regmatches(titanic.full$TixNum[i], regexpr("\\d{1,2}", titanic.full$TixNum[i]))
   }    else titanic.full$TixBg[i] <- regmatches(titanic.full$TixNum[i], regexpr("\\d{3}", titanic.full$TixNum[i])) 
 
 }
@@ -286,12 +287,11 @@ titanic.full$LName <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern =
 titanic.full$MaidenName <- NA
 titanic.full$MaidenName <- str_extract(titanic.full$Name, "\\s[[:alpha:]]+(?=\\))")
 
-## titanic.full$AllNames <- NA
-## for(i in 1:dim(titanic.full)[1]) {
+titanic.full$AllNames <- NA
+for(i in 1:dim(titanic.full)[1]) {
   
-## titanic.full$AllNames[i] <- ifelse(is.na(titanic.full$MaidenName[i] == T), titanic.full$LName[i], titanic.full$MaidenName[i]) ## creating a list, where we sub last name for maiden if available
-
-## }
+titanic.full$AllNames[i] <- ifelse(is.na(titanic.full$MaidenName[i] == T), titanic.full$LName[i], strsplit(paste(titanic.full$LName[i], titanic.full$MaidenName[i], sep = ""), ("\\s"))) ## creating a list, where we sub last name for maiden if available
+}
 
 
 
@@ -302,7 +302,7 @@ titanic.full$SameLN <- ave(titanic.full$PassengerId, titanic.full[, "LName"], FU
 ## repMaiden <- filter(titanic.full, count(MaidenName) >=2)
 
 titanic.full$aggrid <- paste(titanic.full$Embarked, titanic.full$Pclass, titanic.full$TixBg, nchar(titanic.full$TixNum), sep = " " )
-titanic.full$EmbLN <- paste(titanic.full$LName, titanic.full$Embarked, sep = " ") 
+## titanic.full$EmbLN <- paste(titanic.full$LName, titanic.full$Embarked, sep = " ") 
 ## titanic.full$SameEmbLN <- ave(titanic.full$PassengerId, titanic.full[, "EmbLN"], FUN=length)
 
 ## Same cabins&tix combinations, since cabins on different decks can have same number
@@ -332,10 +332,31 @@ for(i in 2:dim(titanic.sorted)[1]){
 
   titanic.sorted$ID[1] = titanic.sorted$PassengerId[1]
   
- if(titanic.sorted$TixNum[i] == titanic.sorted$TixNum[i-1]) {
-   titanic.sorted$AllCabins[i] <- ifelse(titanic.sorted$Cabin[i] == "", titanic.sorted$Cabin[i-1], 
-                        ifelse(titanic.sorted$Cabin[i] == titanic.sorted$Cabin[i-1], titanic.sorted$Cabin[i],paste(titanic.sorted$Cabin[i-1],titanic.sorted$Cabin[i], sep = " ")))
- } 
+     if(titanic.sorted$TixNum[i] == titanic.sorted$TixNum[i-1]) {
+   
+   titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i-1]}
+   else {
+     if(titanic.sorted$LName[i] %in% c(titanic.sorted$LName[i-1], titanic.full$MaidenName[i-1])) { ## use all names that gives us vector
+      
+   titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i-1]}
+   else { 
+     if(titanic.sorted$MaidenName[i] %in% c(titanic.sorted$LName[i-1], titanic.full$MaidenName[i-1])) {
+       
+   titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i-1]}
+   else { 
+     if(titanic.sorted$aggrid[i] == titanic.sorted$aggrid[i-1]) {
+         
+         titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i-1]}
+   else { 
+     if(titanic.sorted$Cabin[i] == "") {
+         
+         titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i]} 
+   else { 
+     if(titanic.sorted$Cabin[i] == titanic.sorted$Cabin[i-1]) {
+         
+         titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i-1]} 
+     
+   else {titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i]}}}}}} 
 }
 
 
