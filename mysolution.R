@@ -83,7 +83,6 @@ colSums(is.na(titanic.full) | titanic.full == '')
 ## Cabin has the most NA's (1014), then Age (263), Emb and Fare have 2 and 1 NA respectively
 ## missmap function from Amelia package will visualize our missing values
 
-
 missmap(titanic.full, main = "Titanic Dataset - Missing Value", col = c("green", "black"), legend = F)
 
 ## from this chart we can see that Age is stored as NA's (= populated), while Cabin was not populated
@@ -97,7 +96,6 @@ filter(titanic.full, is.na(titanic.full$Fare)==T)
 
 ## this is a male passenger from 3rd class, who embarked in a port S
 ## we want to see what is a typical Fare was paid by similar passengers
-
 
 ggplot(filter(titanic.full, Pclass==3 & Embarked=="S"), aes(Fare)) +
   geom_density(fill = "blue", alpha = 0.5) + 
@@ -149,7 +147,7 @@ table(titanic.full$Embarked)
 ## Now we'll get to studying Age data
 summary(titanic.full$Age)
 
-## let's see if there is any difference in age between different Pclasses
+## let's see if there is any difference in age between Pclasses
 
 ggplot(titanic.full, aes(Pclass, Age)) +
   geom_boxplot(aes(fill=factor(Pclass), alpha = 0.5)) +
@@ -158,32 +156,6 @@ ggplot(titanic.full, aes(Pclass, Age)) +
   theme(plot.title = element_text(hjust = 0.5))
 
 ## Based on that chart, we can see that passengers in higher classes tend to be older
-## Thus we want to fill NA's for each class based on avg value of that class
-
-impute.age <- function (age, class) {
-  vector <- age
-  
-  for ( i in 1:length(age)) {
-    if(is.na(age[i])) {
-      if(class[i]==1) {
-        vector[i] <- round(mean(filter(titanic.full, Pclass == 1)$Age, na.rm =T), 0)
-      } else if (class[i]==2) {
-        vector[i] <- round(mean(filter(titanic.full, Pclass == 2)$Age, na.rm =T), 0)
-    } else {
-      vector[i] <- round(mean(filter(titanic.full, Pclass == 3)$Age, na.rm =T), 0)
-  } 
-    } else {
-  vector[i] <- age[i]
-    }
-  } 
-  return(vector)
-}
-  
-imputed.age <- impute.age(titanic.full$Age, titanic.full$Pclass)
-titanic.full$Age <- imputed.age
-
-##if now we make a table(is.na(titanic.full$Age)) we should not have any missing values
-table(is.na(titanic.full$Age))
 
 ## let's check if any gender had better chances at survival
 aggregate(Survived ~ Sex, titanic.train, FUN = function(x) {sum(x)/length(x)})
@@ -243,7 +215,8 @@ titanic.full$TixBg <- NA
 ##titanic.full$nchartix <- nchar(titanic.full$TixNum)
 
 for(i in 1:dim(titanic.full)[1]) {
-    if(nchar(titanic.full$TixNum[i])<= 4) {titanic.full$TixBg[i] <- regmatches(titanic.full$TixNum[i], regexpr("\\d{1,2}", titanic.full$TixNum[i]))
+    if(nchar(titanic.full$TixNum[i])<= 4) {
+      titanic.full$TixBg[i] <- regmatches(titanic.full$TixNum[i], regexpr("\\d{1,2}", titanic.full$TixNum[i]))
   }    else titanic.full$TixBg[i] <- regmatches(titanic.full$TixNum[i], regexpr("\\d{3}", titanic.full$TixNum[i])) 
 
 }
@@ -293,28 +266,9 @@ for(i in 1:dim(titanic.full)[1]) {
 titanic.full$AllNames[i] <- ifelse(is.na(titanic.full$MaidenName[i] == T), titanic.full$LName[i], strsplit(paste(titanic.full$LName[i], titanic.full$MaidenName[i], sep = ""), ("\\s"))) ## creating a list, where we sub last name for maiden if available
 }
 
-
-
-
-titanic.full$SameLN <- ave(titanic.full$PassengerId, titanic.full[, "LName"], FUN=length) ## how many people with that last name
-## titanic.full$SameLN2 <- ave(titanic.full$PassengerId, titanic.full[, "AllNames"], FUN=length) ## checking by maiden name, how many more people in og list with that last name
-
-## repMaiden <- filter(titanic.full, count(MaidenName) >=2)
+## titanic.full$SameLN <- ave(titanic.full$PassengerId, titanic.full[, "LName"], FUN=length) ## how many people with that last name
 
 titanic.full$aggrid <- paste(titanic.full$Embarked, titanic.full$Pclass, titanic.full$TixBg,  sep = " " )
-## titanic.full$EmbLN <- paste(titanic.full$LName, titanic.full$Embarked, sep = " ") 
-## titanic.full$SameEmbLN <- ave(titanic.full$PassengerId, titanic.full[, "EmbLN"], FUN=length)
-
-## Same cabins&tix combinations, since cabins on different decks can have same number
-## titanic.full$CbTix <- paste(titanic.full$Pclass, titanic.full$Cabin, titanic.full$TixNum, sep = " ")
-## titanic.full$SameCb <-ave(titanic.full$PassengerId, titanic.full[, "CbTix"], FUN=length) 
-
-## I want to see if what is common between people who travels with non-family members
-## NonFamGrp <- data.frame()
-## NonFamGrp <- filter(titanic.full, Other >= 1 & TravelGroup == (titanic.full$Other +1))
-## there are few cases when people with the same LName on the same ticket were marked as having no family onboard
-
-
 
 titanic.sorted <- arrange(titanic.full, TixNum, LName, Cabin, aggrid)
 titanic.sorted$ID <- NA
@@ -342,6 +296,8 @@ for(i in 2:dim(titanic.sorted)[1]){
    else {titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i]}}}
 }
 
+titanic.sorted$ID <- ifelse(titanic.sorted$ID == 69, 14,  titanic.sorted$ID)
+
 titanic.sorted <- arrange(titanic.sorted, TixNum, LName, ID, Cabin, aggrid)
 
 finalgrps <- data.frame()
@@ -364,47 +320,110 @@ for(i in 1:dim(titanic.sorted)[1]) {
   }
 }
 
+## let's see if our travel groups are multiple to total amount of people in those groups
+table(titanic.sorted$TravelGrp)
+## yes!!
+titanic.sorted <- arrange(titanic.sorted, TixNum, LName, Cabin, PassengerId)
+titanic.full <- titanic.sorted
 
-
-
-titanic.full$CabinSplit <- NA
-
-for(i in 1:dim(titanic.full)[1]){
-    
-  titanic.full$CabinSplit[i] <- ifelse(nchar(titanic.full$Cabin[i]) ==0, "", strsplit(titanic.full$Cabin[i], "[, ]"))
-  
- }
-
-
-## titanic.full$id <- NA
-
-
-table(titanic.full$TravelGroup)
-## while we see that total number of people in 11 and 8-member group are multiple of 11 and 8
-## we have 27 people in a 7-member group, that means we probably missassigned someone
-## we will return to it later when working with Last Names
-
-
-
-grpdiscrep <- filter(titanic.full, TravelGroup ==7)
-checkout <- filter(titanic.full, LName %in% c("Davies", "White"))
-
-#titanic.full$TravelGroupFixed <- ifelse(titanic.full$LName == "Andersson", 11, titanic.full$TravelGroup)
-titanic.full$TravelGroupFixed <- ifelse(titanic.full$TixNum ==35281, 2,  titanic.full$TravelGroup)
-titanic.full$TravelGroupFixed <- ifelse(titanic.full$TixNum %in% (29104:29106), 6,  titanic.full$TravelGroupFixed)
-titanic.full$TravelGroupFixed <- ifelse(titanic.full$LName == "Kink", 5, titanic.full$TravelGroupFixed)
-
-grpdiscrep <- filter(titanic.full, TravelGroupFixed %in% c(2,4) & SameTix != TravelGroup)
-table(titanic.full$TravelGroupFixed)
-
+rm(titanic.sorted)
 
 ## More than half of passengers are traveling alone, biggest family has 11 members
 ## we will group them together
-titanic.full$Group <- ifelse(titanic.full$TravelGroup == 1, "Single", ifelse(titanic.full$TravelGroup <= 4, "Small", "Large"))
+titanic.full$Group <- ifelse(titanic.full$TravelGrp == 1, "Single", ifelse(titanic.full$TravelGrp <= 4, "Small", "Large"))
 mosaicplot(~Group + Survived, data = titanic.full, main = "Survival rate based on Family Size", shade = T)
 
-aggregate(Survived ~ Sex + TravelGroup, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+aggregate(Survived ~ Sex + TravelGrp, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 aggregate(Survived ~ Sex + Pclass + Group, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+
+## Next we will extract titles from the name of the passenger
+titanic.full$Title <- NA
+titanic.full$Title <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern = "[[:alpha:]]+\\.", text = titanic.full$Name))) 
+
+## To see how many different titles we have, we need to convert our new column to factors
+titanic.full$Title <- as.factor(titanic.full$Title)
+
+## Lets see how many different titles there are, and check for validity 
+str(titanic.full$Title)
+table(titanic.full$Title, titanic.full$Sex)
+
+##Now we will group outliers among titles into "other" group, and similar ones into the larger buckets
+TL <- levels(titanic.full$Title)
+levels(titanic.full$Title) <- gsub("[.]", "", ifelse(TL %in%  c("Don.", "Major.", "Sir.", "Rev.", "Capt.", "Col."), "Mr.",
+                                                     ifelse(TL %in% c("Dona.", "Countess.", "Lady.", "Mme."), "Mrs.",
+                                                            ifelse(TL %in% c("Ms.", "Mlle."), "Miss.", 
+                                                                   ifelse(TL == "Jonkheer.", "Master.", TL)))))
+
+## Let's check, if we got the desired large groups of Title
+table(titanic.full$Title, titanic.full$Sex)
+
+## we think, that person's title has more affect on their age
+## Thus we want to fill NA's for each title based on avg value of that title
+
+impute.age <- function (age, title) {
+  vector <- age
+  
+  for ( i in 1:length(age)) {
+    if(is.na(age[i])) {
+      if(title[i]=="Mrs") {
+        vector[i] <- round(mean(filter(titanic.full, Title == "Mrs")$Age, na.rm =T), 0)
+      } else if (title[i]=="Miss") {
+        vector[i] <- round(mean(filter(titanic.full, Title == "Miss")$Age, na.rm =T), 0)
+      } else if (title[i]=="Mr") {
+        vector[i] <- round(mean(filter(titanic.full, Title == "Mr")$Age, na.rm =T), 0)
+      }  else if (title[i]=="Mr") {
+        vector[i] <- round(mean(filter(titanic.full, Title == "Master")$Age, na.rm =T), 0)
+      } 
+    } else {
+      vector[i] <- age[i]
+    }
+  } 
+  return(vector)
+}
+
+imputed.age <- impute.age(titanic.full$Age, titanic.full$Title)
+titanic.full$Age <- imputed.age
+
+##if now we make a table(is.na(titanic.full$Age)) we should not have any missing values
+table(is.na(titanic.full$Age))
+
+## next we'll create Age groups, considering child turns adult when reaches 18 y.o
+titanic.full$Age <- ifelse(titanic.full$Age <= 1, 1, round(titanic.full$Age, 0))
+titanic.full$AgeGroup <- cut_interval(titanic.full$Age, 15)
+
+aggregate(Survived ~ AgeGroup + Sex, data = titanic.full, FUN = sum) 
+aggregate(Survived ~ AgeGroup + Sex + Pclass, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+## all senior females survived
+
+mosaicplot(~Title + Survived, data = titanic.full, main = "Survival rate based on Title", shade = T)
+
+ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
+  geom_bar(aes(fill = factor(Survived)), alpha = 0.9, position = "fill") +
+  facet_wrap(~Pclass) +
+  scale_fill_brewer(palette = "Set1") +
+  scale_y_continuous(labels=percent, breaks=seq(0,1,0.1)) +
+  ylab("Percentage") + 
+  ggtitle("Survival Rate based on Pclass and Title") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+## Title Mr. has the worst survival rate among all titles 
+ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
+  geom_bar(aes(fill = factor(Survived)), alpha = 0.9, position = "fill") +
+  facet_wrap(~Group) +
+  scale_fill_brewer(palette = "Set1") +
+  scale_y_continuous(labels=percent, breaks=seq(0,1,0.1)) +
+  ylab("Percentage") + 
+  ggtitle("Survival Rate based on Family Size and Title") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+aggregate(Survived ~ Group + Title, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+## Large Groups have the worst survival rates for all titles
+
 
 ## interestingly, Fare seems to indicate amount paid per ticket, not per person
 ## thus, if 5 people travel together, Fare is a what was paid for them alltogether
@@ -446,102 +465,17 @@ prop.table(table(titanic.full$FareGroup, titanic.full$Survived), margin = 1)
 ## thus, 75% of people in that group perished, from people who paid $16-$80, chance are appx. equal,
 ## expensive tix (above $81 had 77% of survival)
 
-## next we'll create Age groups, considering child turns adult when reaches 18 y.o
-titanic.full$Age <- ifelse(titanic.full$Age <= 1, 1, round(titanic.full$Age, 0))
-
-titanic.full$AgeGroup <- cut_interval(titanic.full$Age, 15)
-
-aggregate(Survived ~ AgeGroup + Sex, data = titanic.full, FUN = sum) 
-aggregate(Survived ~ AgeGroup + Sex + Pclass, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
-## all senior females survived
-
-
-### titanic.full$LNTixCombo <- titanic.full %>% group_by( TixNum, LName) %>% summarise(LNRepeat = n())
-
-## we want to see how many unique Last Name & Tix combinations there are
-LNRepeat <- data.frame()
-LNRepeat <- titanic.full %>% group_by(LName, TixNum ) %>% summarise(LNRepeat = n()) 
-
-## since it gives us ony unique values, we get less grouped values than our initial df
-## so I want to create a loop to fill LN & Tix combinations in our main df
-
-### for(i in 1:dim(titanic.full)[1]){
-  
-#  x <- integer()
-#  for(x in 1:dim(LNRepeat)[1]){
-    
-#    if(titanic.full$LName[i] == LNRepeat$LName[x] &
-#       titanic.full$TixNum[i] == LNRepeat$TixNum[x]) {
-#      titanic.full$LNTix[i] <- LNRepeat$LNRepeat[x]
-#    }
-#  }
-### }
- 
-## I want to see how many different tickets we have per last name
-###TixRepeat <- data.frame()
-###TixRepeat<- titanic.full %>% count(LName, Tix = n_distinct(TixNum)) ## how many tickets per last name ?
-###TixRepeat2<- titanic.full %>% count(LName, TixNum) ## how many tickets per last name ???
-
-### !!!  titanic.full$TixLN <- ave(titanic.full$LName, titanic.full[, "TixNum"], FUN=length) - same as sametix; maybe do a for loop hmm, 
-
-## I want to see if what is common between people who travels with non-family members
+## !!! I want to see if what is common between people who travels with non-family members
 NonFamGrp <- data.frame()
-NonFamGrp <- filter(titanic.full, Other >= 1 & TravelGroup == (titanic.full$Other +1))
+NonFamGrp <- filter(titanic.full, Other >= 1 & TravelGrp == (titanic.full$Other +1))
 ## there are few cases when people with the same LName on the same ticket were marked as having no family onboard
 
-## Next we will extract titles from the name of the passenger
-titanic.full$Title <- NA
-titanic.full$Title <- unlist(regmatches(x = titanic.full$Name, regexpr(pattern = "[[:alpha:]]+\\.", text = titanic.full$Name))) 
-
-## To see how many different titles we have, we need to convert our new column to factors
-titanic.full$Title <- as.factor(titanic.full$Title)
-
-## Lets see how many different titles there are, and check for validity 
-str(titanic.full$Title)
-table(titanic.full$Title, titanic.full$Sex)
-
-##Now we will group outliers among titles into "other" group, and similar ones into the larger buckets
-TL <- levels(titanic.full$Title)
-levels(titanic.full$Title) <- gsub("[.]", "", ifelse(TL %in%  c("Don.", "Major.", "Sir.", "Rev.", "Capt.", "Col."), "Mr.",
-                                     ifelse(TL %in% c("Dona.", "Countess.", "Lady.", "Mme."), "Mrs.",
-                                            ifelse(TL %in% c("Ms.", "Mlle."), "Miss.", 
-                                                   ifelse(TL == "Jonkheer.", "Master.", TL)))))
-
-## Let's check, if we got the desired large groups of Title
-table(titanic.full$Title, titanic.full$Sex)
-
-mosaicplot(~Title + Survived, data = titanic.full, main = "Survival rate based on Title", shade = T)
-
-ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
-  geom_bar(aes(fill = factor(Survived)), alpha = 0.9, position = "fill") +
-  facet_wrap(~Pclass) +
-  scale_fill_brewer(palette = "Set1") +
-  scale_y_continuous(labels=percent, breaks=seq(0,1,0.1)) +
-  ylab("Percentage") + 
-  ggtitle("Survival Rate based on Pclass and Title") +
-  theme_bw() +
-  theme(plot.title = element_text(hjust = 0.5)) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-## Title Mr. has the worst survival rate among all titles 
-
-ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
-  geom_bar(aes(fill = factor(Survived)), alpha = 0.9, position = "fill") +
-  facet_wrap(~Group) +
-  scale_fill_brewer(palette = "Set1") +
-  scale_y_continuous(labels=percent, breaks=seq(0,1,0.1)) +
-  ylab("Percentage") + 
-  ggtitle("Survival Rate based on Family Size and Title") +
-  theme_bw() +
-  theme(plot.title = element_text(hjust = 0.5)) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 
-aggregate(Survived ~ Group + Title, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
-## Large Groups have the worst survival rates for all titles
+
+
 
 ## now we will create a table of chance of survival based on gender, pclass and a size of travel group
-
 SexPclassGrp <- data.frame()
 titanic.full$SexPclassGrp <- paste(titanic.full$Pclass, titanic.full$Title, titanic.full$Group, sep =" ")
 SexPclassGrp <- aggregate(Survived ~ SexPclassGrp, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
