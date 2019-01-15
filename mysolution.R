@@ -371,9 +371,10 @@ impute.age <- function (age, title) {
         vector[i] <- round(mean(filter(titanic.full, Title == "Miss")$Age, na.rm =T), 0)
       } else if (title[i]=="Mr") {
         vector[i] <- round(mean(filter(titanic.full, Title == "Mr")$Age, na.rm =T), 0)
-      }  else if (title[i]=="Mr") {
+      }  else if (title[i]=="Master") {
         vector[i] <- round(mean(filter(titanic.full, Title == "Master")$Age, na.rm =T), 0)
-      } 
+      } else if (title[i]=="Dr") {
+        vector[i] <- round(mean(filter(titanic.full, Title == "Dr")$Age, na.rm =T), 0)
     } else {
       vector[i] <- age[i]
     }
@@ -386,7 +387,7 @@ titanic.full$Age <- imputed.age
 
 ##if now we make a table(is.na(titanic.full$Age)) we should not have any missing values
 table(is.na(titanic.full$Age))
-
+filter(titanic.full, is.na(Age==T))
 ## next we'll create Age groups, considering child turns adult when reaches 18 y.o
 titanic.full$Age <- ifelse(titanic.full$Age <= 1, 1, round(titanic.full$Age, 0))
 titanic.full$AgeGroup <- cut_interval(titanic.full$Age, 15)
