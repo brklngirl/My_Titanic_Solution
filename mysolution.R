@@ -301,21 +301,13 @@ titanic.full$SameLN <- ave(titanic.full$PassengerId, titanic.full[, "LName"], FU
 
 ## repMaiden <- filter(titanic.full, count(MaidenName) >=2)
 
-titanic.full$aggrid <- paste(titanic.full$Embarked, titanic.full$Pclass, titanic.full$TixBg, nchar(titanic.full$TixNum), sep = " " )
+titanic.full$aggrid <- paste(titanic.full$Embarked, titanic.full$Pclass, titanic.full$TixBg,  sep = " " )
 ## titanic.full$EmbLN <- paste(titanic.full$LName, titanic.full$Embarked, sep = " ") 
 ## titanic.full$SameEmbLN <- ave(titanic.full$PassengerId, titanic.full[, "EmbLN"], FUN=length)
 
 ## Same cabins&tix combinations, since cabins on different decks can have same number
 ## titanic.full$CbTix <- paste(titanic.full$Pclass, titanic.full$Cabin, titanic.full$TixNum, sep = " ")
 ## titanic.full$SameCb <-ave(titanic.full$PassengerId, titanic.full[, "CbTix"], FUN=length) 
-## Travel group will give us more precise count of people traveling together in a group
-
-## titanic.full$TravelGroup <- NA 
-  
-## for(i in 1:dim(titanic.full)[1]) {
-##   titanic.full$TravelGroup[i] = max(titanic.full$SameTix[i], titanic.full$SameEmbLN[i], titanic.full$SameCb[i])
-## }
-  
 
 ## I want to see if what is common between people who travels with non-family members
 ## NonFamGrp <- data.frame()
@@ -324,45 +316,53 @@ titanic.full$aggrid <- paste(titanic.full$Embarked, titanic.full$Pclass, titanic
 
 
 
-titanic.sorted <- arrange(titanic.full, TixNum, LName, Cabin)
+titanic.sorted <- arrange(titanic.full, TixNum, LName, Cabin, aggrid)
 titanic.sorted$ID <- NA
 
 
 for(i in 2:dim(titanic.sorted)[1]){
 
   titanic.sorted$ID[1] = titanic.sorted$PassengerId[1]
-  
-     if(titanic.sorted$TixNum[i] == titanic.sorted$TixNum[i-1]) {
-   
-   titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i-1]}
-   else {
-     if(titanic.sorted$LName[i] %in% c(titanic.sorted$LName[i-1], titanic.full$MaidenName[i-1])) { ## use all names that gives us vector
-      
-   titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i-1]}
-   else { 
-     if(titanic.sorted$MaidenName[i] %in% c(titanic.sorted$LName[i-1], titanic.full$MaidenName[i-1])) {
+
+        if(titanic.sorted$TixNum[i] == 0) {
+        if(titanic.sorted$TixText[i] == "LINE") {titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i]}
+    else {
+      titanic.sorted$ID[i] <- titanic.sorted$ID[i-1]}} 
        
-   titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i-1]}
-   else { 
-     if(titanic.sorted$aggrid[i] == titanic.sorted$aggrid[i-1]) {
-         
-         titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i-1]}
-   else { 
-     if(titanic.sorted$Cabin[i] == "") {
-         
-         titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i]} 
-   else { 
-     if(titanic.sorted$Cabin[i] == titanic.sorted$Cabin[i-1]) {
-         
-         titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i-1]} 
-     
-   else {titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i]}}}}}} 
+        if((titanic.sorted$TixNum[i] == titanic.sorted$TixNum[i-1]) & (titanic.sorted$TixNum[i] != 0)){
+        titanic.sorted$ID[i] <- titanic.sorted$ID[i-1]}
+    else { 
+        if((titanic.sorted$aggrid[i] == titanic.sorted$aggrid[i-1]) &
+      ((titanic.sorted$LName[i] %in% titanic.sorted$AllNames[i-1])| 
+         (titanic.sorted$MaidenName[i] %in% titanic.sorted$AllNames[i-1]))) {
+            titanic.sorted$ID[i] <- titanic.sorted$ID[i-1]}
+     else { 
+        if((titanic.sorted$Cabin[i] == titanic.sorted$Cabin[i-1]) & (titanic.sorted$Cabin[i] != "")) {
+         titanic.sorted$ID[i] <- titanic.sorted$ID[i-1]}
+   else {titanic.sorted$ID[i] <- titanic.sorted$PassengerId[i]}}}
 }
 
+titanic.sorted <- arrange(titanic.sorted, TixNum, LName, ID, Cabin, aggrid)
 
+finalgrps <- data.frame()
+finalgrps <- titanic.sorted %>% group_by(ID) %>% summarise(Grp = n()) 
 
+table(finalgrps$Grp)
 
+## Travel group will give us more precise count of people traveling together in a group
 
+titanic.sorted$TravelGrp <- NA 
+
+for(i in 1:dim(titanic.sorted)[1]) {
+
+  x <- integer()
+  for(x in 1:dim(finalgrps)[1]){
+    
+  if(titanic.sorted$ID[i] == finalgrps$ID[x]) {
+  titanic.sorted$TravelGrp[i] <- finalgrps$Grp[x]
+    }
+  }
+}
 
 
 
