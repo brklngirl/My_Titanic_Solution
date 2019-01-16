@@ -552,13 +552,12 @@ titanic.full$haschildsvv <- ifelse(titanic.full$childsvvnum >0, "yes", "no") ## 
 aggregate(Survived ~ haschild, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 ## any group with a child svvs @ 48%, if this child svvd , then svvl rate goes to 79%
 
+
+
 ## now we will create a table of chance of survival based on gender, pclass and a size of travel group
 
-
-
-
 SexPclassGrp <- data.frame()
-titanic.full$SexPclassGrp <- paste(titanic.full$Pclass, titanic.full$AgeSex, titanic.full$Group, titanic.full$Title, titanic.full$FareGroup, titanic.full$hasfems, titanic.full$hasfemsvv, sep =" ")
+titanic.full$SexPclassGrp <- paste(titanic.full$Pclass, titanic.full$AgeSex, titanic.full$Group, titanic.full$Title, titanic.full$FareGroup, titanic.full$hasfems, titanic.full$hasadultfemsvv, titanic.full$haschild,  sep =" ")
 SexPclassGrp <- aggregate(Survived ~ SexPclassGrp, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 
 for(i in 1:dim(titanic.full)[1]){
@@ -580,7 +579,7 @@ filter(titanic.full, Title =="Dr")
 filter(titanic.full, LName == "Dodge")
 ## He did!!!! Since his wife is 54 y.o, 1st class ulso unknown if svvd, I will assume - they both did
 
-titanic.full$SPGSvv[titanic.full$LName == "Dodge"] <- 1
+## titanic.full$SPGSvv[titanic.full$LName == "Dodge"] <- 1
 
 ## We will assign other probabilities that we are certain about
 #titanic.full$SPGSvv[titanic.full$Title =="Miss" & titanic.full$Group == "Small"] <- 0.84
@@ -681,15 +680,22 @@ titanic.full$TixText[titanic.full$Deck %in% c("A", "B")] <- "PC"
 table(titanic.full$TixBg, titanic.full$Deck, titanic.full$Pclass)
 ### firstclass <- filter(titanic.full, Pclass ==2 & TixBg !=2)
 
+# Pclass, "AgeSex", Group, Title, FareGroup, hasfems, "hasadultfemsvv", "haschild"
+## train <- titanic.full[c("Survived", "Sex", "Age", "Embarked", "FarePP", "FareGroup",
+## "AgeGroup", "Group", "TravelGrp", "Deck", "Title", "TixNum", 
+## "TixBg", "nchartix","AgeSex","hasadultfemsvv", "haschild" )]
 
-train <- titanic.full[c("Survived", "Sex", "Age", "Embarked", "FarePP", "FareGroup", "AgeGroup", "Group", "TravelGrp", "Deck", "Title", "TixNum", "TixBg", "SPGSvv", "nchartix")]
+train <- titanic.full[c("Survived", "Embarked", "FarePP", 
+                        "AgeGroup", "Group", "TravelGrp", "Title", "TixNum", 
+                        "nchartix","AgeSex","hasadultfemsvv", "haschildsvv")]
 str(train)
-train$Sex = factor(train$Sex)
 train$Survived = factor(train$Survived)
 train$Embarked = factor(train$Embarked)
 train$Group = factor(train$Group)
 train$TixNum <- as.numeric(train$TixNum)
-train$TixBg <- as.numeric(train$TixBg)
+train$AgeSex = factor(train$AgeSex)
+train$hasadultfemsvv = factor(train$hasadultfemsvv)
+train$haschildsvv = factor(train$haschildsvv)
 
 set.seed(129)
 
@@ -747,7 +753,7 @@ round(auc, 4)
 prob_pred <- predict(model, newdata = test_og)
 y_pred <-ifelse(prob_pred > 0.35, 1, 0)
 results <- data.frame(PassengerID = c(892:1309), Survived = y_pred)
-write.csv(results, file = "TitanicGlmPrediction 0114.csv", row.names = F, quote = F)
+write.csv(results, file = "TitanicGlmPrediction 0115 x2.csv", row.names = F, quote = F)
 
 ### Decision Tree
 
@@ -765,7 +771,7 @@ paste('Accuracy', round(1 - error, 4)) ##
 ### Random Forest
 
 set.seed(737)
-model = randomForest(Survived ~., data = fit) 
+model = randomForest(Survived ~., data = fit, na.action=na.exclude) 
 
 plot(model)
 ## Our model has a smaller error predicting death vs survival, while verall error averages put @ ~17%
