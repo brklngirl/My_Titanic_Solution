@@ -212,7 +212,22 @@ levels(factor(titanic.full$TixText))
 
 titanic.full$TixBg1 <- regmatches(titanic.full$TixNum, regexpr("\\d", titanic.full$TixNum))
 titanic.full$TixBg <- NA
-##titanic.full$nchartix <- nchar(titanic.full$TixNum)
+titanic.full$nchartix <- nchar(titanic.full$TixNum)
+
+table(titanic.full$nchartix)
+## I am curios if there is any correlation between the length of a tix num and its first digits
+titanic.full$ncharbg <- NA
+titanic.full$ncharbg <- paste(titanic.full$TixBg, titanic.full$nchartix, sep = " ")
+
+table(titanic.full$TixBg1, titanic.full$nchartix)
+table(titanic.full$TixBg1)
+
+## so i am thinking that some tix nums are missing digits, perhaps later we could look into 
+## ammending extra digits, so all tix begining with same digit are of the same length
+
+filter(titanic.full, TixBg1 ==8)
+
+
 
 for(i in 1:dim(titanic.full)[1]) {
     if(nchar(titanic.full$TixNum[i])<= 4) {
@@ -375,10 +390,8 @@ impute.age <- function (age, title) {
         vector[i] <- round(mean(filter(titanic.full, Title == "Master")$Age, na.rm =T), 0)
       } else if (title[i]=="Dr") {
         vector[i] <- round(mean(filter(titanic.full, Title == "Dr")$Age, na.rm =T), 0)
-    } else {
-      vector[i] <- age[i]
-    }
-  } 
+      } else {
+      vector[i] <- age[i]}}}
   return(vector)
 }
 
@@ -386,11 +399,24 @@ imputed.age <- impute.age(titanic.full$Age, titanic.full$Title)
 titanic.full$Age <- imputed.age
 
 ##if now we make a table(is.na(titanic.full$Age)) we should not have any missing values
-table(is.na(titanic.full$Age))
+table(titanic.full$Age)
 filter(titanic.full, is.na(Age==T))
 ## next we'll create Age groups, considering child turns adult when reaches 18 y.o
+titanic.full$AgeCat <- ifelse(titanic.full$Age < 5, "baby",
+                            ifelse(titanic.full$Age < 10, "child", 
+                                ifelse(titanic.full$Age <18, "teen",
+                                     ifelse(titanic.full$Age <60, "adult",
+                                            "senior"))))
+
+titanic.full$AgeSex <- paste(titanic.full$AgeCat, titanic.full$Sex, sep = " ")
+
+titanic.full$AdultKid <- ifelse(titanic.full$Age <18, "kid", 'adult')
+
+aggregate(Survived ~ AgeSex, data = titanic.full, FUN = function(x) {sum(x)/length(x)} )
 titanic.full$Age <- ifelse(titanic.full$Age <= 1, 1, round(titanic.full$Age, 0))
-titanic.full$AgeGroup <- cut_interval(titanic.full$Age, 15)
+
+titanic.full$AgeGroup <- cut_interval(titanic.full$Age, 8)
+
 
 aggregate(Survived ~ AgeGroup + Sex, data = titanic.full, FUN = sum) 
 aggregate(Survived ~ AgeGroup + Sex + Pclass, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
@@ -409,7 +435,8 @@ ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-## Title Mr. has the worst survival rate among all titles 
+ 
+
 ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
   geom_bar(aes(fill = factor(Survived)), alpha = 0.9, position = "fill") +
   facet_wrap(~Group) +
@@ -420,7 +447,8 @@ ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
+## Title Mr. has the worst survival rate among all titles
+## everyone had a higher chance in 1st cl
 
 aggregate(Survived ~ Group + Title, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 ## Large Groups have the worst survival rates for all titles
@@ -471,14 +499,9 @@ NonFamGrp <- data.frame()
 NonFamGrp <- filter(titanic.full, Other >= 1 & TravelGrp == (titanic.full$Other +1))
 ## there are few cases when people with the same LName on the same ticket were marked as having no family onboard
 
-
-
-
-
-
 ## now we will create a table of chance of survival based on gender, pclass and a size of travel group
 SexPclassGrp <- data.frame()
-titanic.full$SexPclassGrp <- paste(titanic.full$Pclass, titanic.full$Title, titanic.full$Group, sep =" ")
+titanic.full$SexPclassGrp <- paste(titanic.full$Pclass, titanic.full$Title, titanic.full$Group, titanic.full$AgeGroup, sep =" ")
 SexPclassGrp <- aggregate(Survived ~ SexPclassGrp, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 
 for(i in 1:dim(titanic.full)[1]){
@@ -493,7 +516,26 @@ for(i in 1:dim(titanic.full)[1]){
 }
 
 
-filter(titanic.full, Title =="Dr" & titanic.full$Survived == 1)
+
+titanic.full$fem <- ifelse(titanic.full$Sex == "female", 1, 0)
+titanic.full$SvvO <- 
+titanic.full$femingr <- ave(titanic.full$ID, titanic.full$fem], FUN=length) 
+
+for(i in 1:dim(titanic.full)[1]){
+
+  x <- integer()
+  for(x in 1:dim(finalgrps)[1]){
+    if(titanic.full$LName[i] == LNRepeat$LName[x] &
+           titanic.full$TixNum[i] == LNRepeat$TixNum[x]) {
+          titanic.full$LNTix[i] <- LNRepeat$LNRepeat[x]
+       }
+      }
+     }
+  titanic.full$femingrp[i] <- count(titanic.full$ID[i], titanic.full$Sex == "female")
+###}
+
+
+filter(titanic.full, Title =="Dr")
 ## the only Dr who we don't know if survived, emb in S, paid $27, has cabin info and is 53 y.e;
 ## however his tix starts with 3, and he travels in a family of 3, and has a child
 ## let's check if child svvd
@@ -503,18 +545,18 @@ filter(titanic.full, LName == "Dodge")
 titanic.full$SPGSvv[titanic.full$LName == "Dodge"] <- 1
 
 ## We will assign other probabilities that we are certain about
-titanic.full$SPGSvv[titanic.full$Title =="Miss" & titanic.full$Group == "Small"] <- 0.84
-titanic.full$SPGSvv[titanic.full$Title =="Master" & titanic.full$Group == "Small"] <- 1
-titanic.full$SPGSvv[titanic.full$Title =="Master" & titanic.full$Group != "Small"] <- 0
-titanic.full$SPGSvv[titanic.full$Sex =="female" & titanic.full$Group == "Small" & titanic.full$Pclass == 1] <- 1
-titanic.full$SPGSvv[titanic.full$Sex =="female" & titanic.full$Group == "Large" & titanic.full$Pclass == 2] <- 1
-titanic.full$SPGSvv[titanic.full$Sex =="male" & titanic.full$Group == "Large" & titanic.full$Pclass == 2] <- 0
-titanic.full$SPGSvv[titanic.full$Sex =="male" & titanic.full$Age <= 11.5 & titanic.full$Pclass != 3] <- 1
-titanic.full$SPGSvv[titanic.full$Sex =="female" & between(titanic.full$Age, 6, 12) & titanic.full$Pclass == 3] <- 0
-titanic.full$SPGSvv[titanic.full$Sex =="female" & between(titanic.full$Age, 37, 48) & titanic.full$Pclass == 3] <- 0
-titanic.full$SPGSvv[titanic.full$Age >= 74.7] <- 1
-titanic.full$SPGSvv[between(titanic.full$Age, 64.2, 74.7)] <- 0
-titanic.full$SPGSvv[titanic.full$FarePP ==0] <- 0
+#titanic.full$SPGSvv[titanic.full$Title =="Miss" & titanic.full$Group == "Small"] <- 0.84
+#titanic.full$SPGSvv[titanic.full$Title =="Master" & titanic.full$Group == "Small"] <- 1
+#titanic.full$SPGSvv[titanic.full$Title =="Master" & titanic.full$Group != "Small"] <- 0
+#titanic.full$SPGSvv[titanic.full$Sex =="female" & titanic.full$Group == "Small" & titanic.full$Pclass == 1] <- 1
+#titanic.full$SPGSvv[titanic.full$Sex =="female" & titanic.full$Group == "Large" & titanic.full$Pclass == 2] <- 1
+#titanic.full$SPGSvv[titanic.full$Sex =="male" & titanic.full$Group == "Large" & titanic.full$Pclass == 2] <- 0
+#titanic.full$SPGSvv[titanic.full$Sex =="male" & titanic.full$Age <= 11.5 & titanic.full$Pclass != 3] <- 1
+#titanic.full$SPGSvv[titanic.full$Sex =="female" & between(titanic.full$Age, 6, 12) & titanic.full$Pclass == 3] <- 0
+#titanic.full$SPGSvv[titanic.full$Sex =="female" & between(titanic.full$Age, 37, 48) & titanic.full$Pclass == 3] <- 0
+#titanic.full$SPGSvv[titanic.full$Age >= 74.7] <- 1
+#titanic.full$SPGSvv[between(titanic.full$Age, 64.2, 74.7)] <- 0
+#titanic.full$SPGSvv[titanic.full$FarePP ==0] <- 0
 
 ## lets research Cabin info
 titanic.full$Deck <- NA
@@ -533,10 +575,10 @@ table(titanic.full$AgeGroup, titanic.full$Deck)
 table(titanic.full$AgeGroup, titanic.full$Survived)
 ## the older you are the less likely you were to survive
 
-table(titanic.full$TravelGroup, titanic.full$Deck)
+table(titanic.full$TravelGrp, titanic.full$Deck)
 ## bigger groups tend to travel in higher decks
 
-table(titanic.full$AgeGroup, titanic.full$TravelGroup)
+table(titanic.full$AgeGroup, titanic.full$TravelGrp)
 ## older people tend to travel in smaller groups, that can be explained that larger groups  very often consist of kids
 
 table(titanic.full$AgeGroup, titanic.full$Other)
@@ -556,7 +598,7 @@ table(titanic.full$Embarked, titanic.full$Deck)
 ## people who boarded in Q mostly don't have a Cabin data; 
 ## availble cabin data for lower decks was recorded only at S port
 
-table(titanic.full$TravelGroup, titanic.full$Embarked)
+table(titanic.full$TravelGrp, titanic.full$Embarked)
 ## very interesting, from Q boarded only singles and groups up to 3 people 
 ## could be that their tickets were specfic to smaller cabin sizes?
 ## up to 5 people boarded from C, and all the bigger groups boarded from S 
@@ -590,26 +632,9 @@ for(i in 1:dim(titanic.full)[1]){
 
 table(titanic.full$Deck)
 ## This way we predicted deck for additional 23 passengers
+titanic.full$nchartix <- nchar(titanic.full$TixNum)
 
 titanic.full$Deck[titanic.full$CabinBg ==9] <- "G"
-## I want to try to assign same cabins? to the people on the same tix
-
-
-### for(i in 1:dim(titanic.full)[1]){
-  
-#  x <- integer()
-#  for(x in 1:dim(deck)[1]){
-    
-#    if(titanic.full$TixNum[i] == deck$TixNum[x]) {
-#      titanic.full$Cabin[i] <- deck$Cabin[x]
-#    }
-#  } ### some of the same tix have different cabins mentioned
-  
-combinations <- data.frame()
-combinations <- expand(titanic.full, nesting(TixNum, Cabin))
-fc<-filter(combinations, nchar(TixNum)==5) ## checking what is common of anything between tickets of the same lenght
-
-## ??  so we basically filled empty cabin info and deck info from tix data
 
 table(titanic.full$Deck, titanic.full$TixText)
 titanic.full$TixText[titanic.full$Deck %in% c("A", "B")] <- "PC"
@@ -619,14 +644,14 @@ table(titanic.full$TixBg, titanic.full$Deck, titanic.full$Pclass)
 ### firstclass <- filter(titanic.full, Pclass ==2 & TixBg !=2)
 
 
-train <- titanic.full[c("Survived", "Age", "Embarked", "Title", "FarePP", "AgeGroup", "Deck", "TixNum", "SexPclassGrp", "SPGSvv ", "SameLN")]
+train <- titanic.full[c("Survived", "Sex", "Age", "Embarked", "FarePP", "FareGroup", "AgeGroup", "Group", "TravelGrp", "Deck", "Title", "TixNum", "TixBg", "SPGSvv", "nchartix")]
 str(train)
 train$Sex = factor(train$Sex)
-train$Pclass = factor(train$Pclass)
 train$Survived = factor(train$Survived)
 train$Embarked = factor(train$Embarked)
 train$Group = factor(train$Group)
 train$TixNum <- as.numeric(train$TixNum)
+train$TixBg <- as.numeric(train$TixBg)
 
 set.seed(129)
 
@@ -677,19 +702,18 @@ auc <- auc@y.values[[1]]
 
 round(auc, 4)
 
-## we got pretty good result auc = 0.9149
+## we got pretty good result auc = 0.9277
 ## the closer it is to 1 - the better
 
 ##  now we predict test set results
 prob_pred <- predict(model, newdata = test_og)
 y_pred <-ifelse(prob_pred > 0.35, 1, 0)
 results <- data.frame(PassengerID = c(892:1309), Survived = y_pred)
-
-write.csv(results, file = "TitanicGlmPrediction 0111 SPGSVV.csv", row.names = F, quote = F)
+write.csv(results, file = "TitanicGlmPrediction 0114.csv", row.names = F, quote = F)
 
 ### Decision Tree
 
-model <- rpart(Survived~., data = fit, method = "class")
+model <- rpart(Survived ~., data = fit, method = "class")
 rpart.plot (model, extra =4)
 
 y_pred = predict(model, newdata = test[, -which(names(test)== "Survived")], type ="class")
