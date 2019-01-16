@@ -399,7 +399,6 @@ imputed.age <- impute.age(titanic.full$Age, titanic.full$Title)
 titanic.full$Age <- imputed.age
 
 ##if now we make a table(is.na(titanic.full$Age)) we should not have any missing values
-table(titanic.full$Age)
 filter(titanic.full, is.na(Age==T))
 ## next we'll create Age groups, considering child turns adult when reaches 18 y.o
 titanic.full$AgeCat <- ifelse(titanic.full$Age < 5, "baby",
@@ -412,8 +411,23 @@ titanic.full$AgeSex <- paste(titanic.full$AgeCat, titanic.full$Sex, sep = " ")
 
 titanic.full$AdultKid <- ifelse(titanic.full$Age <18, "kid", 'adult')
 
-aggregate(Survived ~ AgeSex, data = titanic.full, FUN = function(x) {sum(x)/length(x)} )
+aggregate(Survived ~ AgeSex+Pclass, data = titanic.full, FUN = function(x) {sum(x)/length(x)} )
 titanic.full$Age <- ifelse(titanic.full$Age <= 1, 1, round(titanic.full$Age, 0))
+## interesting, there are no kids age 5-10 in 1st class? 
+## also, girls <5yo all svv in 2nd cl, and  perished in 1cl
+## teen girls svv in both 1/2cl
+## all fem <20yo in 2nd cl svv
+## teen boys svv in 1st cl, perished in 2nd, 10-20yo 10% svv - 18-20
+## males 60-70 in 1cl died
+## males 20-30 & 50-60 in 2nd cl perished
+## baby male <5 yo all svv in 1/2nd pclass
+## all males <10 yo svv in 1st cl
+## adult fem have high svv rate in 1 and 2nd cl
+
+## all senior fem svv in 1 and 3 cl
+## senior males perished in almost all cases (3 excl)
+## adult males 50+ and fem 40-50 all perished in 3cl
+
 
 titanic.full$AgeGroup <- cut_interval(titanic.full$Age, 8)
 
@@ -422,7 +436,10 @@ aggregate(Survived ~ AgeGroup + Sex, data = titanic.full, FUN = sum)
 aggregate(Survived ~ AgeGroup + Sex + Pclass, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 ## all senior females survived
 
+
 mosaicplot(~Title + Survived, data = titanic.full, main = "Survival rate based on Title", shade = T)
+mosaicplot(~Family + Survived, data = titanic.full, main = "Survival rate based on Famsize", shade = T)
+mosaicplot(~TravelGrp + Survived, data = titanic.full, main = "Survival rate based on Travel Group Sz", shade = T)
 
 ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
   geom_bar(aes(fill = factor(Survived)), alpha = 0.9, position = "fill") +
@@ -452,7 +469,8 @@ ggplot(filter(titanic.full, is.na(Survived)==F), aes(Title)) +
 
 aggregate(Survived ~ Group + Title, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 ## Large Groups have the worst survival rates for all titles
-
+aggregate(Survived ~ AgeCat + Title, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+## teen&senior Mrs, and senior Miss 100%, fem Dr 100%; adult Master 0%
 
 ## interestingly, Fare seems to indicate amount paid per ticket, not per person
 ## thus, if 5 people travel together, Fare is a what was paid for them alltogether
@@ -475,6 +493,10 @@ titanic.full$FareGroup <- cut_number(titanic.full$FarePP, 4)
 
 aggregate(Survived~ FareGroup + Pclass, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 aggregate(Survived~ FareGroup + Pclass, data = titanic.full, FUN = sum)
+## 1cl: <7$ 0%, 7-8 100%
+## 2cl: 15-128$ 100%
+## 3cl: 15-128 0%
+
 
 ggplot(titanic.full, aes(FarePP)) +
   geom_density(fill = "blue", alpha = 0.5) + 
@@ -499,9 +521,44 @@ NonFamGrp <- data.frame()
 NonFamGrp <- filter(titanic.full, Other >= 1 & TravelGrp == (titanic.full$Other +1))
 ## there are few cases when people with the same LName on the same ticket were marked as having no family onboard
 
+titanic.full$isfemale <- ifelse(titanic.full$Sex == "female", 1, 0) ## is female
+titanic.full$femsvv <- ifelse(titanic.full$Sex == "female" & titanic.full$Survived == 1, 1, 0) ## is female svvr
+titanic.full$femsvv <- ifelse(is.na(titanic.full$femsvv ==T), 0, titanic.full$femsvv)
+titanic.full$adultfemsvv <- ifelse(titanic.full$femsvv ==1 & titanic.full$AdultKid == "adult", 1, 0) ##marks adult fem svvr
+titanic.full$femnum <- ave(titanic.full$isfemale, titanic.full$ID, FUN=sum) ## how many females are in a trav grp
+titanic.full$femsvvnum <- ave(titanic.full$femsvv, titanic.full$ID, FUN=sum) ## how many fem svvrs are in a trav grp
+titanic.full$adultfemsvvnum <- ave(titanic.full$adultfemsvv, titanic.full$ID, FUN=sum) ## how many ADULT fem svvrs are in a trav grp
+
+titanic.full$hasfem <- ifelse(titanic.full$femnum >0, "yes", "no") ## if grp has fem
+titanic.full$hasfemsvv <- ifelse(titanic.full$femsvvnum >0, "yes", "no") ## if grp has fem svvr
+titanic.full$hasadultfemsvv <- ifelse(titanic.full$adultfemsvvnum >0, "yes", "no") ## if grp has adult fem svvr
+
+titanic.full$femsvvrate <- ifelse(titanic.full$hasfems == "yes", titanic.full$femsvvnum/titanic.full$femnum, NA) ##  current fem svvl rate in group
+
+aggregate(Survived ~ hasadultfemsvv, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+## Grp with female svv @74%, while grp with adult fem svvl @~ 85% (83% with any age fem svvr)
+
+
+titanic.full$childnum <- ave(ifelse(titanic.full$AdultKid == "kid", 1, 0), titanic.full$ID, FUN=sum) ## how many kids are in a trav grp
+
+titanic.full$childsvv <- ifelse(titanic.full$AdultKid == "kid" & titanic.full$Survived == 1, 1, 0) ## is child svvr
+titanic.full$childsvv <- ifelse(is.na(titanic.full$childsvv ==T), 0, titanic.full$childsvv)
+
+titanic.full$childsvvnum <- ave(titanic.full$childsvv, titanic.full$ID, FUN=sum) ## how many kids svvrs are in a trav grp
+
+titanic.full$haschild <- ifelse(titanic.full$childnum >0, "yes", "no") ## if grp has kids
+titanic.full$haschildsvv <- ifelse(titanic.full$childsvvnum >0, "yes", "no") ## if grp has kid svvr
+
+aggregate(Survived ~ haschild, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
+## any group with a child svvs @ 48%, if this child svvd , then svvl rate goes to 79%
+
 ## now we will create a table of chance of survival based on gender, pclass and a size of travel group
+
+
+
+
 SexPclassGrp <- data.frame()
-titanic.full$SexPclassGrp <- paste(titanic.full$Pclass, titanic.full$Title, titanic.full$Group, titanic.full$AgeGroup, sep =" ")
+titanic.full$SexPclassGrp <- paste(titanic.full$Pclass, titanic.full$AgeSex, titanic.full$Group, titanic.full$Title, titanic.full$FareGroup, titanic.full$hasfems, titanic.full$hasfemsvv, sep =" ")
 SexPclassGrp <- aggregate(Survived ~ SexPclassGrp, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 
 for(i in 1:dim(titanic.full)[1]){
@@ -514,25 +571,6 @@ for(i in 1:dim(titanic.full)[1]){
     }
   }
 }
-
-
-
-titanic.full$fem <- ifelse(titanic.full$Sex == "female", 1, 0)
-titanic.full$SvvO <- 
-titanic.full$femingr <- ave(titanic.full$ID, titanic.full$fem], FUN=length) 
-
-for(i in 1:dim(titanic.full)[1]){
-
-  x <- integer()
-  for(x in 1:dim(finalgrps)[1]){
-    if(titanic.full$LName[i] == LNRepeat$LName[x] &
-           titanic.full$TixNum[i] == LNRepeat$TixNum[x]) {
-          titanic.full$LNTix[i] <- LNRepeat$LNRepeat[x]
-       }
-      }
-     }
-  titanic.full$femingrp[i] <- count(titanic.full$ID[i], titanic.full$Sex == "female")
-###}
 
 
 filter(titanic.full, Title =="Dr")
