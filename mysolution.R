@@ -210,34 +210,6 @@ titanic.full$TixText <- gsub("[.]","",str_to_upper(ifelse(is.na((str_extract(tit
 levels(factor(titanic.full$TixText)) 
 
 
-titanic.full$TixBg1 <- regmatches(titanic.full$TixNum, regexpr("\\d", titanic.full$TixNum))
-titanic.full$TixBg <- NA
-titanic.full$nchartix <- nchar(titanic.full$TixNum)
-
-table(titanic.full$nchartix)
-## I am curios if there is any correlation between the length of a tix num and its first digits
-titanic.full$ncharbg <- NA
-titanic.full$ncharbg <- paste(titanic.full$TixBg, titanic.full$nchartix, sep = " ")
-
-table(titanic.full$TixBg1, titanic.full$nchartix)
-table(titanic.full$TixBg1)
-
-titanic.full <- arrange(titanic.full, nchartix, TixNum, TixText)
-## so i am thinking that some tix nums are missing digits, perhaps later we could look into 
-## ammending extra digits, so all tix begining with same digit are of the same length
-
-filter(titanic.full, TixBg1 ==8)
-
-
-
-for(i in 1:dim(titanic.full)[1]) {
-    if(nchar(titanic.full$TixNum[i])<= 4) {
-      titanic.full$TixBg[i] <- regmatches(titanic.full$TixNum[i], regexpr("\\d{1,2}", titanic.full$TixNum[i]))
-  }    else titanic.full$TixBg[i] <- regmatches(titanic.full$TixNum[i], regexpr("\\d{3}", titanic.full$TixNum[i])) 
-
-}
-
-
 ## Let's try to clean the text values to merge duplicates 
 titanic.full$TixText <- sub(" ", "/", titanic.full$TixText)
 titanic.full$TixText <- sub("A/", "A", titanic.full$TixText)
@@ -262,9 +234,44 @@ table(titanic.full$Embarked, titanic.full$TixText)
 ## as SOTON (and like ones: SO/C, SCO, SOC, STON, SW, WE..)
 ## while SC/Paric and SC/AH Basle are exclusive to Cherbourg
 
+
+titanic.full$TixBg1 <- regmatches(titanic.full$TixNum, regexpr("\\d", titanic.full$TixNum))
+titanic.full$TixBg <- NA
+titanic.full$nchartix <- nchar(titanic.full$TixNum)
+
+table(titanic.full$nchartix)
+## I am curios if there is any correlation between the length of a tix num and its first digits
+titanic.full$ncharbg <- NA
+titanic.full$ncharbg <- paste(titanic.full$nchartix, titanic.full$TixBg1, sep = "")
+
+table(titanic.full$TixBg1, titanic.full$nchartix)
+table(titanic.full$TixBg1)
+
+titanic.full <- arrange(titanic.full, nchartix, TixNum, TixText)
+## so i am thinking that some tix nums are missing digits, perhaps later we could look into 
+## ammending extra digits, so all tix begining with same digit are of the same length
+
+filter(titanic.full, TixBg1 ==8)
+
+
+for(i in 1:dim(titanic.full)[1]) {
+    if(nchar(titanic.full$TixNum[i])<= 4) {
+      titanic.full$TixBg[i] <- regmatches(titanic.full$TixNum[i], regexpr("\\d{1,2}", titanic.full$TixNum[i]))
+  }    else titanic.full$TixBg[i] <- regmatches(titanic.full$TixNum[i], regexpr("\\d{3}", titanic.full$TixNum[i])) 
+
+}
+
 titanic.full$ncharbgtext <- paste(titanic.full$TixBg1, titanic.full$TixText,  sep = " ")
 
-table(titanic.full$ncharbgtext, titanic.full$Pclass)
+table(titanic.full$ncharbg, titanic.full$Pclass)
+
+titanic.full$tixtest <- ifelse(titanic.full$TixBg1 == titanic.full$Pclass, titanic.full$TixNum, paste(titanic.full$Pclass,titanic.full$TixNum, sep = "" ))
+titanic.full$tixtest <- str_pad(titanic.full$tixtest, 7, side = "right", pad = "0")
+
+titanic.full$tixtestbg <- substr(titanic.full$tixtest, start =1, stop =2)
+table(titanic.full$tixtestbg, titanic.full$Pclass)
+
+#table(titanic.full$tixtestbg, titanic.full$TixText)
 
 ## Now I want to see how many persons are traveling under each ticket number
 titanic.full$SameTix <- ifelse(titanic.full$TixNum == 0, 1, ave(titanic.full$PassengerId, titanic.full[, "TixNum"], FUN=length))
@@ -347,7 +354,10 @@ titanic.full <- titanic.sorted
 
 rm(titanic.sorted)
 
-titanic.full$knownsvv <- ifelse(is.na(titanic.full$Survived ==T ), 0, titanic.full$Survived)
+
+
+
+titanic.full$knownsvv <- ifelse(is.na(titanic.full$Survived ==T ), 0.5, titanic.full$Survived)
 titanic.full$anysvvnum <- ave(titanic.full$knownsvv, titanic.full$ID, FUN=sum) ## how many any svvrs are in a trav grp
 ## should I calc %??
 titanic.full$svvrateingrp <- titanic.full$anysvvnum/titanic.full$TravelGrp
@@ -546,7 +556,7 @@ titanic.full$femsvvrate <- ifelse(titanic.full$hasfems == "yes", titanic.full$fe
 
 aggregate(Survived ~ hasadultfemsvv, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 ## Grp with female svv @74%, while grp with adult fem svvl @~ 85% (83% with any age fem svvr)
-
+aggregate(Survived ~ Sex + femsvv, titanic.train, FUN = function(x) {sum(x)/length(x)})
 
 titanic.full$childnum <- ave(ifelse(titanic.full$AdultKid == "kid", 1, 0), titanic.full$ID, FUN=sum) ## how many kids are in a trav grp
 
@@ -710,24 +720,25 @@ table(titanic.full$TixBg, titanic.full$Deck, titanic.full$Pclass)
 ## "AgeGroup", "Group", "TravelGrp", "Deck", "Title", "TixNum", 
 ## "TixBg", "nchartix","AgeSex","hasadultfemsvv", "haschild" )]
 
+titanic.full <- arrange(titanic.full, PassengerId)
 train <- titanic.full[c("Survived", "Embarked", "FarePP", 
-                        "AgeGroup", "Group", "TravelGrp", "Title", "TixNum", 
-                        "nchartix","AgeSex", "isfemale", "hasadultfemsvv", "haschildsvv", "svvrateingrp")]
+                        "AgeGroup", "AgeCat" , "TravelGrp", "Title", "TixNum", 
+                        "ncharbg","isfemale", "hasfemsvv", "haschild", "childnum")]
 str(train)
 train$Survived = factor(train$Survived)
 train$Embarked = factor(train$Embarked)
-train$Group = factor(train$Group)
+train$ncharbg = factor(train$ncharbg)
 train$TixNum <- as.numeric(train$TixNum)
-train$AgeSex = factor(train$AgeSex)
-train$hasadultfemsvv = factor(train$hasadultfemsvv)
-train$haschildsvv = factor(train$haschildsvv)
+train$hasfemsvv = factor(train$hasfemsvv)
+train$haschild = factor(train$haschild)
+train$AgeCat = factor(train$AgeCat)
 
 set.seed(1243)
 
 test_og <- filter(train, is.na(Survived==T))
 train_og <- filter(train, Survived == 0 |Survived == 1 )
 
-split = sample.split(train_og$Survived, SplitRatio =0.8)
+split = sample.split(train_og$Survived, SplitRatio =0.7)
 
 fit <- subset(train_og, split ==T)
 test <- subset(train_og, split ==F) 
@@ -776,7 +787,7 @@ round(auc, 4)
 
 ##  now we predict test set results
 prob_pred <- predict(model, newdata = test_og)
-y_pred <-ifelse(prob_pred > 0.5, 1, 0)
+y_pred <-ifelse(prob_pred > 0.55, 1, 0)
 results <- data.frame(PassengerID = c(892:1309), Survived = y_pred)
 write.csv(results, file = "TitanicGlmPrediction 0117.csv", row.names = F, quote = F)
 
@@ -793,8 +804,8 @@ paste('Accuracy', round(1 - error, 4)) ##
 
 ##  now we predict test set results
 prob_pred <- predict(model, newdata = test_og)
-y_pred <-ifelse(prob_pred > 0.5, 1, 0)
-results <- data.frame(PassengerID = c(892:1309), Survived = y_pred)
+#y_pred <-ifelse(prob_pred > 0.5, 1, 0)
+results <- data.frame(PassengerID = c(892:1309), Survived = prob_pred)
 write.csv(results, file = "TitanicDT 0117.csv", row.names = F, quote = F)
 
 ## our accuracy went down
@@ -817,8 +828,7 @@ paste('Accuracy', round(1 - error, 4))
 
 ##  now we predict test set results
 prob_pred <- predict(model, newdata = test_og)
-y_pred <-ifelse(prob_pred > 0.5, 1, 0)
-results <- data.frame(PassengerID = c(892:1309), Survived = y_pred)
+results <- data.frame(PassengerID = c(892:1309), Survived = prob_pred)
 write.csv(results, file = "TitanicRF 0117.csv", row.names = F, quote = F)
 
 ## while our accuracy improved a bit, randomForest suffers in terms of interpretability 
