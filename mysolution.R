@@ -222,6 +222,7 @@ titanic.full$ncharbg <- paste(titanic.full$TixBg, titanic.full$nchartix, sep = "
 table(titanic.full$TixBg1, titanic.full$nchartix)
 table(titanic.full$TixBg1)
 
+titanic.full <- arrange(titanic.full, nchartix, TixNum, TixText)
 ## so i am thinking that some tix nums are missing digits, perhaps later we could look into 
 ## ammending extra digits, so all tix begining with same digit are of the same length
 
@@ -260,7 +261,10 @@ table(titanic.full$Embarked, titanic.full$TixText)
 ## A..Prefixes (A5, A4, CA..etc)were assigned almost exclusively at Southhamptom port, as well
 ## as SOTON (and like ones: SO/C, SCO, SOC, STON, SW, WE..)
 ## while SC/Paric and SC/AH Basle are exclusive to Cherbourg
-table(titanic.full$Pclass, titanic.full$TixText)
+
+titanic.full$ncharbgtext <- paste(titanic.full$TixBg1, titanic.full$TixText,  sep = " ")
+
+table(titanic.full$ncharbgtext, titanic.full$Pclass)
 
 ## Now I want to see how many persons are traveling under each ticket number
 titanic.full$SameTix <- ifelse(titanic.full$TixNum == 0, 1, ave(titanic.full$PassengerId, titanic.full[, "TixNum"], FUN=length))
@@ -343,9 +347,14 @@ titanic.full <- titanic.sorted
 
 rm(titanic.sorted)
 
+titanic.full$knownsvv <- ifelse(is.na(titanic.full$Survived ==T ), 0, titanic.full$Survived)
+titanic.full$anysvvnum <- ave(titanic.full$knownsvv, titanic.full$ID, FUN=sum) ## how many any svvrs are in a trav grp
+## should I calc %??
+titanic.full$svvrateingrp <- titanic.full$anysvvnum/titanic.full$TravelGrp
+
 ## More than half of passengers are traveling alone, biggest family has 11 members
 ## we will group them together
-titanic.full$Group <- ifelse(titanic.full$TravelGrp == 1, "Single", ifelse(titanic.full$TravelGrp <= 4, "Small", "Large"))
+titanic.full$Group <- ifelse(titanic.full$TravelGrp == 1, "Single", ifelse(titanic.full$TravelGrp ==2, "Couple", ifelse(titanic.full$TravelGrp <= 4, "Small", "Large")))
 mosaicplot(~Group + Survived, data = titanic.full, main = "Survival rate based on Family Size", shade = T)
 
 aggregate(Survived ~ Sex + TravelGrp, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
@@ -552,10 +561,6 @@ titanic.full$haschildsvv <- ifelse(titanic.full$childsvvnum >0, "yes", "no") ## 
 aggregate(Survived ~ haschild, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 ## any group with a child svvs @ 48%, if this child svvd , then svvl rate goes to 79%
 
-titanic.full$knownsvv <- ifelse(is.na(titanic.full$Survived ==T ), 0, titanic.full$Survived)
-titanic.full$anysvvnum <- ave(titanic.full$knownsvv, titanic.full$ID, FUN=sum) ## how many any svvrs are in a trav grp
-
-
 ## now we will create a table of chance of survival based on gender, pclass and a size of travel group
 
 SexPclassGrp <- data.frame()
@@ -707,7 +712,7 @@ table(titanic.full$TixBg, titanic.full$Deck, titanic.full$Pclass)
 
 train <- titanic.full[c("Survived", "Embarked", "FarePP", 
                         "AgeGroup", "Group", "TravelGrp", "Title", "TixNum", 
-                        "nchartix","AgeSex","hasadultfemsvv", "haschildsvv")]
+                        "nchartix","AgeSex", "isfemale", "hasadultfemsvv", "haschildsvv", "svvrateingrp")]
 str(train)
 train$Survived = factor(train$Survived)
 train$Embarked = factor(train$Embarked)
@@ -717,7 +722,7 @@ train$AgeSex = factor(train$AgeSex)
 train$hasadultfemsvv = factor(train$hasadultfemsvv)
 train$haschildsvv = factor(train$haschildsvv)
 
-set.seed(129)
+set.seed(1243)
 
 test_og <- filter(train, is.na(Survived==T))
 train_og <- filter(train, Survived == 0 |Survived == 1 )
@@ -771,9 +776,9 @@ round(auc, 4)
 
 ##  now we predict test set results
 prob_pred <- predict(model, newdata = test_og)
-y_pred <-ifelse(prob_pred > 0.35, 1, 0)
+y_pred <-ifelse(prob_pred > 0.5, 1, 0)
 results <- data.frame(PassengerID = c(892:1309), Survived = y_pred)
-write.csv(results, file = "TitanicGlmPrediction 0115 x2.csv", row.names = F, quote = F)
+write.csv(results, file = "TitanicGlmPrediction 0117.csv", row.names = F, quote = F)
 
 ### Decision Tree
 
@@ -785,6 +790,12 @@ table(test$Survived, y_pred)
 
 error <- mean(y_pred != test$Survived) ## missclasification error
 paste('Accuracy', round(1 - error, 4)) ##
+
+##  now we predict test set results
+prob_pred <- predict(model, newdata = test_og)
+y_pred <-ifelse(prob_pred > 0.5, 1, 0)
+results <- data.frame(PassengerID = c(892:1309), Survived = y_pred)
+write.csv(results, file = "TitanicDT 0117.csv", row.names = F, quote = F)
 
 ## our accuracy went down
 
@@ -802,6 +813,13 @@ table(test$Survived, y_pred)
 
 error <- mean(y_pred != test$Survived) ## missclasification error
 paste('Accuracy', round(1 - error, 4)) 
+
+
+##  now we predict test set results
+prob_pred <- predict(model, newdata = test_og)
+y_pred <-ifelse(prob_pred > 0.5, 1, 0)
+results <- data.frame(PassengerID = c(892:1309), Survived = y_pred)
+write.csv(results, file = "TitanicRF 0117.csv", row.names = F, quote = F)
 
 ## while our accuracy improved a bit, randomForest suffers in terms of interpretability 
 ## vs Decision Tree which is very visual
