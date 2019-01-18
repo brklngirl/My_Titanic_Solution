@@ -552,6 +552,8 @@ titanic.full$haschildsvv <- ifelse(titanic.full$childsvvnum >0, "yes", "no") ## 
 aggregate(Survived ~ haschild, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 ## any group with a child svvs @ 48%, if this child svvd , then svvl rate goes to 79%
 
+titanic.full$knownsvv <- ifelse(is.na(titanic.full$Survived ==T ), 0, titanic.full$Survived)
+titanic.full$anysvvnum <- ave(titanic.full$knownsvv, titanic.full$ID, FUN=sum) ## how many any svvrs are in a trav grp
 
 
 ## now we will create a table of chance of survival based on gender, pclass and a size of travel group
@@ -598,6 +600,18 @@ filter(titanic.full, LName == "Dodge")
 ## lets research Cabin info
 titanic.full$Deck <- NA
 titanic.full$Deck <- factor(substr(titanic.full$Cabin, start =1, stop =1))
+
+# for(i in 1:dim(titanic.full)[1]){
+#  
+#   if(nchar(titanic.full$Cabin[i]) >=1) {
+#     titanic.full$Deck[i] <- regmatches(titanic.full$Cabin[i], gregexpr(("[[:alpha:]]"), titanic.full$Cabin[i]))
+#     if(is.vector(titanic.full$Deck[i])== T) {titanic.full$Deck[i] <- unique(titanic.full$Deck[i])}
+#   } else {titanic.full$Deck[i] <- ""}
+# }
+# 
+# titanic.full$Deck <- ifelse(nchar(titanic.full$Cabin)>0, regmatches(titanic.full$Cabin, gregexpr(("[[:alpha:]]"), titanic.full$Cabin)), "")
+# titanic.full$Deck <- ifelse(nchar(titanic.full$Deck)>0, unique(titanic.full$Deck), "")
+
 table(titanic.full$Deck)
 
 table(titanic.full$Pclass, titanic.full$Deck)
@@ -643,12 +657,12 @@ table(titanic.full$TravelGrp, titanic.full$Embarked)
 
 ### repeat  aggregate(Survived ~ Pclass + Deck, data=filter(titanic.full, Deck !=''),FUN = function(x) {sum(x)/length(x)})
 aggregate(Survived ~ Pclass + Deck, data=filter(titanic.full, Deck !=''),FUN = function(x) {sum(x)/length(x)})
-## we select only columns from train set that we think we can use in our model
-## then we split our new dataset into two chunks, one to create a model
-## and then test it on a train set
-
 
 ## I want to try and fill some missing Deck Info
+
+## !! Add: has deck info
+
+## add: has tix pfix
 
 deck.df <- subset(titanic.full, Deck != '' | is.na(Deck == T))
 deck <- deck.df[, c("Survived", "PassengerId", "Cabin", "Embarked", "TixNum", "TixText", "FarePP", "Deck", "LName")] 
@@ -679,6 +693,12 @@ titanic.full$TixText[titanic.full$Deck %in% c("A", "B")] <- "PC"
 
 table(titanic.full$TixBg, titanic.full$Deck, titanic.full$Pclass)
 ### firstclass <- filter(titanic.full, Pclass ==2 & TixBg !=2)
+
+
+## we select only columns from train set that we think we can use in our model
+## then we split our new dataset into two chunks, one to create a model
+## and then test it on a train set
+
 
 # Pclass, "AgeSex", Group, Title, FareGroup, hasfems, "hasadultfemsvv", "haschild"
 ## train <- titanic.full[c("Survived", "Sex", "Age", "Embarked", "FarePP", "FareGroup",
