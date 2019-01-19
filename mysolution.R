@@ -620,56 +620,92 @@ filter(titanic.full, LName == "Dodge")
 #titanic.full$SPGSvv[titanic.full$FarePP ==0] <- 0
 
 ## lets research Cabin info
+
+## first, we will try to fill na cb info
+titanic.full <- arrange(titanic.full, ID, TixNum, desc(Cabin))
+
+for(i in 2:dim(titanic.full)[1]){
+  if(titanic.full$TixNum[i] == titanic.full$TixNum[i-1]){ ## same tix num 
+    if(nchar(titanic.full$Cabin[i]) ==0) {
+      titanic.full$Cabin[i] <- titanic.full$Cabin[i-1]
+    }}
+}
+
+titanic.full$cbtix <- NA
+# titanic.full$cbid <- NA
+
+
+for(i in 2:dim(titanic.full)[1]){
+  titanic.full$cbtix[1] = titanic.full$Cabin[1]
+  titanic.full$cbid[1] = titanic.full$Cabin[1]
+  if(titanic.full$TravelGrp >1) {
+    titanic.full$cbtx[i] == titanic.full$Cabin[i]
+  } else {
+    if(titanic.full$TixNum[i] == titanic.full$TixNum[i-1]){ ## same tix num &
+      
+      if(titanic.full$Cabin[i] == titanic.full$Cabin[i-1]) { ## a) same cabins
+        
+        titanic.full$cbtix[i] <- titanic.full$cbtix[i-1]}
+      else { titanic.full$cbtix[i] <- paste(titanic.full$cbtix[i-1], titanic.full$Cabin[i], sep = " ") ## b) diff cabins
+      } 
+    }}
+  
+  if(titanic.full$TixNum[i] != titanic.full$TixNum[i-1]){
+    titanic.full$cbtix[i] <- titanic.full$Cabin[i]
+  } else {""}
+}
+
+
+## the first letter in cabin num identifies deck
 titanic.full$Deck <- NA
 titanic.full$Deck <- factor(substr(titanic.full$Cabin, start =1, stop =1))
 
 titanic.full$CbNum <- NA
 titanic.full$OddEvenCb <- NA
 
-for(i in 1:dim(titanic.full)[1]){
- if(nchar(titanic.full$Cabin[i]) >2) {
+for(i in 1:dim(titanic.full)[1]){ ## odd or even cabin
+  if(nchar(titanic.full$Cabin[i]) >=2) {
     titanic.full$CbNum[i] <- as.numeric(regmatches(titanic.full$Cabin[i], regexpr("\\d{1,3}", titanic.full$Cabin[i])))
     
     if(titanic.full$CbNum[i] %% 2 == 0) {
       titanic.full$OddEvenCb[i]<- "Even" } else {titanic.full$OddEvenCb[i]<- "Odd"}
-    }
-    else {""}
-
+  }
+  else {""}
+  
 }
-
 misscb<- data.frame()
 misscb <- titanic.full %>% filter(TravelGrp > 1) %>% group_by(ID, TravelGrp, cbtix) %>% summarise(MismatchCb = n())
 misscb <- misscb %>% group_by(ID) %>% summarise(MismatchCb = n()) 
 misscb <- misscb %>% filter(MismatchCb >1)
 
+titanic.full$cbtixall <- NA ## all cabins per ID
+titanic.full <- arrange(titanic.full, ID, TixNum, desc(cbtix))
+for(i in 1:1309){
+  
+  titanic.full$cbtixall[1] = titanic.full$cbtix[1]
+  x <- integer()
+  for(x in 1:dim(misscb)[1]){
+    
+  if(titanic.full$ID[i] == misscb$ID[x]) { ## ID is in a list of ID's with mismatched cabins
+    
+    if(titanic.full$TixNum[i] == titanic.full$TixNum[i-1]){ ## same tix num 
+      
+       if(titanic.full$cbtix[i] == titanic.full$cbtix[i-1]) { ## a) same cabins
+        titanic.full$cbtixall[i] <- titanic.full$cbtix[i]}
+      
+      if(titanic.full$cbtix[i] != titanic.full$cbtix[i-1]) { 
+        titanic.full$cbtixall[i] <- titanic.full$cbtix[i-1] }## b) diff cabins
+    }
+    if(titanic.full$TixNum[i] != titanic.full$TixNum[i-1]){  ## diff tixnum
+    
+      titanic.full$cbtixall[i] <- titanic.full$cbtix[i]}}
+    
+    #else {titanic.full$cbtixall[i] <- titanic.full$cbtix[i]}
+    }
+}
 
 
 
-
-
-titanic.full$cbtix <- NA
-# titanic.full$cbid <- NA
-titanic.full <- arrange(titanic.full, ID, TixNum, desc(Cabin))
-
- for(i in 2:dim(titanic.full)[1]){
-   titanic.full$cbtix[1] = titanic.full$Cabin[1]
-   titanic.full$cbid[1] = titanic.full$Cabin[1]
- if(titanic.full$TravelGrp >1) {
-   titanic.full$cbtx[i] == titanic.full$Cabin[i]
- } else {
-       if(titanic.full$TixNum[i] == titanic.full$TixNum[i-1]){ ## same tix num &
-        
-           if(titanic.full$Cabin[i] == titanic.full$Cabin[i-1]) { ## a) same cabins
-             
-             titanic.full$cbtix[i] <- titanic.full$cbtix[i-1]}
-           else { titanic.full$cbtix[i] <- paste(titanic.full$cbtix[i-1], titanic.full$Cabin[i], sep = ", ") ## b) diff cabins
-               } 
-           }}
-        
-      if(titanic.full$TixNum[i] != titanic.full$TixNum[i-1]){
-        titanic.full$cbtix[i] <- titanic.full$Cabin[i]
-        } else {""}
-   }
 
 #      titanic.full$cbtix[i] <- regmatches(titanic.full$Cabin[i], gregexpr(("[[:alpha:]]"), titanic.full$Cabin[i]))
 #      titanic.full$cbtix[i] <- unique(titanic.full$Deck[i])}
