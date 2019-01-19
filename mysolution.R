@@ -61,6 +61,8 @@ ncol(titanic.test)
 ## next we will combine both sets
 titanic.full <- rbind(titanic.train, titanic.test)
 
+rm(titanic.train, titanic.test)
+
 ## lets check tail again to see all the data till the end has populated
 tail(titanic.full)
 
@@ -71,14 +73,9 @@ table(titanic.full$IsTrainSet)
 str(titanic.full)
 
 ## There are plenty of NA's
-colSums(is.na(titanic.train) | titanic.train == '')
+colSums(is.na(titanic.full) | titanic.full == '')
 ## in train set the only column contains NA is Age, 177 missing values
 
-## lets check test set
-colSums(is.na(titanic.test) | titanic.test == '')
-
-## let's combine those results, because when we will fill na's we will do it for the whole data frame anyways
-colSums(is.na(titanic.full) | titanic.full == '')
 
 ## Cabin has the most NA's (1014), then Age (263), Emb and Fare have 2 and 1 NA respectively
 ## missmap function from Amelia package will visualize our missing values
@@ -195,8 +192,7 @@ aggregate(Survived ~ Pclass + Sex, data = titanic.full,FUN = function(x) {sum(x)
 ## ---Feature Engineering---
 
 ## Next we'll create a column for famil size
-titanic.full$Oneself <- 1
-titanic.full$Family <- titanic.full$SibSp + titanic.full$Parch + titanic.full$Oneself
+titanic.full$Family <- titanic.full$SibSp + titanic.full$Parch + 1
 table(titanic.full$Family)
 
 ## I want to add a column to see how many people could travel together on the same ticket #
@@ -546,9 +542,10 @@ prop.table(table(titanic.full$FareGroup, titanic.full$Survived), margin = 1)
 ## expensive tix (above $81 had 77% of survival)
 
 ## !!! I want to see if what is common between people who travels with non-family members
-NonFamGrp <- data.frame()
-NonFamGrp <- filter(titanic.full, Other >= 1 & TravelGrp == (titanic.full$Other +1))
-## there are few cases when people with the same LName on the same ticket were marked as having no family onboard
+# NonFamGrp <- data.frame()
+# NonFamGrp <- filter(titanic.full, Other >= 1 & TravelGrp == (titanic.full$Other +1))
+# ## there are few cases when people with the same LName on the same ticket were marked as having no family onboard
+# rm(NonFamGrp)
 
 titanic.full$isfemale <- ifelse(titanic.full$Sex == "female", 1, 0) ## is female
 titanic.full$femsvv <- ifelse(titanic.full$Sex == "female" & titanic.full$Survived == 1, 1, 0) ## is female svvr
@@ -626,6 +623,20 @@ filter(titanic.full, LName == "Dodge")
 titanic.full$Deck <- NA
 titanic.full$Deck <- factor(substr(titanic.full$Cabin, start =1, stop =1))
 
+titanic.full$CbNum <- NA
+titanic.full$OddEvenCb <- NA
+for(i in 1:dim(titanic.full)[1]){
+ if(nchar(titanic.full$Cabin[i]) >2) {
+    titanic.full$CbNum[i] <- as.numeric(regmatches(titanic.full$Cabin[i], regexpr("\\d{1,3}", titanic.full$Cabin[i])))
+    
+    if(titanic.full$CbNum[i] %% 2 == 0) {
+      titanic.full$OddEvenCb[i]<- "Even" } else {titanic.full$OddEvenCb[i]<- "Odd"}
+    }
+    else {""}
+
+}
+
+
 titanic.full$cbtix <- NA
 titanic.full$cbid <- NA
 titanic.full <- arrange(titanic.full, ID, TixNum, desc(Cabin))
@@ -634,49 +645,19 @@ titanic.full <- arrange(titanic.full, ID, TixNum, desc(Cabin))
    titanic.full$cbtix[1] = titanic.full$Cabin[1]
    titanic.full$cbid[1] = titanic.full$Cabin[1]
    
-   if(titanic.full$ID[i] != titanic.full$ID[i-1]) {
-     titanic.full$cbtix[i] <- titanic.full$Cabin[i]
-     #titanic.full$cbid[i] <- titanic.full$Cabin[i] 
-     }
-   
-   if(titanic.full$ID[i] == titanic.full$ID[i-1]) { ## same grp ID
-     
-      if(titanic.full$TixNum[i] == titanic.full$TixNum[i-1]){ ## same tix num
+       if(titanic.full$TixNum[i] == titanic.full$TixNum[i-1]){ ## same tix num &
         
-           if(titanic.full$Cabin[i] == titanic.full$Cabin[i-1]) { ## same cabins
+           if(titanic.full$Cabin[i] == titanic.full$Cabin[i-1]) { ## a) same cabins
              
              titanic.full$cbtix[i] <- titanic.full$cbtix[i-1]}
-           else { titanic.full$cbtix[i] <- paste(titanic.full$cbtix[i-1], titanic.full$Cabin[i], sep = ", ")
-               #titanic.full$cbid <- paste(titanic.full$cbid[i-1], titanic.full$Cabin[i], sep = ", ")
+           else { titanic.full$cbtix[i] <- paste(titanic.full$cbtix[i-1], titanic.full$Cabin[i], sep = ", ") ## b) diff cabins
                } 
-           #titanic.full$cbid[i] <- titanic.full$cbid[i-1]
            }
-             
         
-      #      if(titanic.full$Cabin[i] != titanic.full$Cabin[i-1]) {
-      #          titanic.full$cbtix[i] <- paste(titanic.full$Cabin[i], titanic.full$Cabin[i-1], sep = ", ")
-      #          #titanic.full$cbid <- paste(titanic.full$Cabin[i], titanic.full$Cabin[i-1], sep = ", ")
-      #          }
-      # }
-     
       if(titanic.full$TixNum[i] != titanic.full$TixNum[i-1]){
         titanic.full$cbtix[i] <- titanic.full$Cabin[i]
-        #titanic.full$cbid <- paste(titanic.full$Cabin[i], titanic.full$Cabin[i-1], sep = ", ")
         }
       }
- }
-     #       if(is.null(titanic.full$Cabin[i-1]) == T) {
-     #          titanic.full$cbtix[i] <- titanic.full$Cabin[i]
-     #          titanic.full$cbid[i] <- titanic.full$Cabin[i]}
-     #   
-     #  
-     # is.null(titanic.full$Cabin[i-1]) == F &     
-  
-      # else {titanic.full$cbtix[i] <- paste(titanic.full$Cabin[i], titanic.full$Cabin[i-1], sep = ", ")
-   # titanic.full$cbid <- paste(titanic.full$Cabin[i], titanic.full$Cabin[i-1], sep = ", ")}}
-   #   titanic.full$cbid <- paste(titanic.full$Cabin[i], titanic.full$Cabin[i-1], sep = ", ")}
-   #   
- 
 #      titanic.full$cbtix[i] <- regmatches(titanic.full$Cabin[i], gregexpr(("[[:alpha:]]"), titanic.full$Cabin[i]))
 #      titanic.full$cbtix[i] <- unique(titanic.full$Deck[i])}
 # #   } else {titanic.full$Deck[i] <- ""}
@@ -684,6 +665,7 @@ titanic.full <- arrange(titanic.full, ID, TixNum, desc(Cabin))
 # 
 # titanic.full$Deck <- ifelse(nchar(titanic.full$Cabin)>0, regmatches(titanic.full$Cabin, gregexpr(("[[:alpha:]]"), titanic.full$Cabin)), "")
 # titanic.full$Deck <- ifelse(nchar(titanic.full$Deck)>0, unique(titanic.full$Deck), "")
+str(titanic.full)
 
 table(titanic.full$Deck)
 
@@ -756,7 +738,6 @@ for(i in 1:dim(titanic.full)[1]){
 
 table(titanic.full$Deck)
 ## This way we predicted deck for additional 23 passengers
-titanic.full$nchartix <- nchar(titanic.full$TixNum)
 
 titanic.full$Deck[titanic.full$CabinBg ==9] <- "G"
 
@@ -777,11 +758,13 @@ table(titanic.full$TixBg, titanic.full$Deck, titanic.full$Pclass)
 ## train <- titanic.full[c("Survived", "Sex", "Age", "Embarked", "FarePP", "FareGroup",
 ## "AgeGroup", "Group", "TravelGrp", "Deck", "Title", "TixNum", 
 ## "TixBg", "nchartix","AgeSex","hasadultfemsvv", "haschild" )]
+titanic.full[, c("AgeSex", "AdultKid", "isfemale", "femsvv","adultfemsvv", "femsvvnum", "adultfemsvvnum", "femsvvrate", "anysvvnum")] <- list(NULL)
+
 
 titanic.full <- arrange(titanic.full, PassengerId)
 train <- titanic.full[c("Survived", "Embarked", "FarePP", 
                         "AgeGroup", "AgeCat" , "TravelGrp", "Title", "TixNum", 
-                        "ncharbg","isfemale", "hasfemsvv", "haschild", "childnum")]
+                        "ncharbg", "hasfemsvv", "haschild", "childnum")]
 str(train)
 train$Survived = factor(train$Survived)
 train$Embarked = factor(train$Embarked)
