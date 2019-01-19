@@ -268,7 +268,7 @@ table(titanic.full$ncharbg, titanic.full$Pclass)
 titanic.full$tixtest <- ifelse(titanic.full$TixBg1 == titanic.full$Pclass, titanic.full$TixNum, paste(titanic.full$Pclass,titanic.full$TixNum, sep = "" ))
 titanic.full$tixtest <- str_pad(titanic.full$tixtest, 7, side = "right", pad = "0")
 
-titanic.full$tixtestbg <- substr(titanic.full$tixtest, start =1, stop =2)
+titanic.full$tixtestbg <- substr(titanic.full$tixtest, start =1, stop =1)
 table(titanic.full$tixtestbg, titanic.full$Pclass)
 
 #table(titanic.full$tixtestbg, titanic.full$TixText)
@@ -355,7 +355,17 @@ titanic.full <- titanic.sorted
 rm(titanic.sorted)
 
 
+table(titanic.full$TravelGrp, titanic.full$tixtestbg)
+table(titanic.full$TravelGrp, titanic.full$Pclass)
+## so groups of 8 & 11 belong to 3rd class,
+## grp of 7 placed once in 1st and 2nd class, and twice in 3rd; grps of 6 - in 1st and 3rd
+aggregate(PassengerId ~ Pclass, data = titanic.full, FUN = length)
 
+# titanic.full$GrpPfix<- paste(titanic.full$ID, titanic.full$TixText, sep = " ")
+# 
+# GrpPfix <- titanic.full %>% group_by(GrpPfix) %>% summarise(PfixNum = n())
+# 
+# table( titanic.full$TixText, titanic.full$TravelGrp, titanic.full$Pclass)
 
 titanic.full$knownsvv <- ifelse(is.na(titanic.full$Survived ==T ), 0.5, titanic.full$Survived)
 titanic.full$anysvvnum <- ave(titanic.full$knownsvv, titanic.full$ID, FUN=sum) ## how many any svvrs are in a trav grp
@@ -556,7 +566,7 @@ titanic.full$femsvvrate <- ifelse(titanic.full$hasfems == "yes", titanic.full$fe
 
 aggregate(Survived ~ hasadultfemsvv, data = titanic.full, FUN = function(x) {sum(x)/length(x)})
 ## Grp with female svv @74%, while grp with adult fem svvl @~ 85% (83% with any age fem svvr)
-aggregate(Survived ~ Sex + femsvv, titanic.train, FUN = function(x) {sum(x)/length(x)})
+aggregate(Survived ~ Sex + hasfemsvv +AgeCat, titanic.full, FUN = function(x) {sum(x)/length(x)})
 
 titanic.full$childnum <- ave(ifelse(titanic.full$AdultKid == "kid", 1, 0), titanic.full$ID, FUN=sum) ## how many kids are in a trav grp
 
@@ -616,12 +626,60 @@ filter(titanic.full, LName == "Dodge")
 titanic.full$Deck <- NA
 titanic.full$Deck <- factor(substr(titanic.full$Cabin, start =1, stop =1))
 
-# for(i in 1:dim(titanic.full)[1]){
-#  
-#   if(nchar(titanic.full$Cabin[i]) >=1) {
-#     titanic.full$Deck[i] <- regmatches(titanic.full$Cabin[i], gregexpr(("[[:alpha:]]"), titanic.full$Cabin[i]))
-#     if(is.vector(titanic.full$Deck[i])== T) {titanic.full$Deck[i] <- unique(titanic.full$Deck[i])}
-#   } else {titanic.full$Deck[i] <- ""}
+titanic.full$cbtix <- NA
+titanic.full$cbid <- NA
+titanic.full <- arrange(titanic.full, ID, TixNum, desc(Cabin))
+
+ for(i in 2:dim(titanic.full)[1]){
+   titanic.full$cbtix[1] = titanic.full$Cabin[1]
+   titanic.full$cbid[1] = titanic.full$Cabin[1]
+   
+   if(titanic.full$ID[i] != titanic.full$ID[i-1]) {
+     titanic.full$cbtix[i] <- titanic.full$Cabin[i]
+     #titanic.full$cbid[i] <- titanic.full$Cabin[i] 
+     }
+   
+   if(titanic.full$ID[i] == titanic.full$ID[i-1]) { ## same grp ID
+     
+      if(titanic.full$TixNum[i] == titanic.full$TixNum[i-1]){ ## same tix num
+        
+           if(titanic.full$Cabin[i] == titanic.full$Cabin[i-1]) { ## same cabins
+             
+             titanic.full$cbtix[i] <- titanic.full$cbtix[i-1]}
+           else { titanic.full$cbtix[i] <- paste(titanic.full$cbtix[i-1], titanic.full$Cabin[i], sep = ", ")
+               #titanic.full$cbid <- paste(titanic.full$cbid[i-1], titanic.full$Cabin[i], sep = ", ")
+               } 
+           #titanic.full$cbid[i] <- titanic.full$cbid[i-1]
+           }
+             
+        
+      #      if(titanic.full$Cabin[i] != titanic.full$Cabin[i-1]) {
+      #          titanic.full$cbtix[i] <- paste(titanic.full$Cabin[i], titanic.full$Cabin[i-1], sep = ", ")
+      #          #titanic.full$cbid <- paste(titanic.full$Cabin[i], titanic.full$Cabin[i-1], sep = ", ")
+      #          }
+      # }
+     
+      if(titanic.full$TixNum[i] != titanic.full$TixNum[i-1]){
+        titanic.full$cbtix[i] <- titanic.full$Cabin[i]
+        #titanic.full$cbid <- paste(titanic.full$Cabin[i], titanic.full$Cabin[i-1], sep = ", ")
+        }
+      }
+ }
+     #       if(is.null(titanic.full$Cabin[i-1]) == T) {
+     #          titanic.full$cbtix[i] <- titanic.full$Cabin[i]
+     #          titanic.full$cbid[i] <- titanic.full$Cabin[i]}
+     #   
+     #  
+     # is.null(titanic.full$Cabin[i-1]) == F &     
+  
+      # else {titanic.full$cbtix[i] <- paste(titanic.full$Cabin[i], titanic.full$Cabin[i-1], sep = ", ")
+   # titanic.full$cbid <- paste(titanic.full$Cabin[i], titanic.full$Cabin[i-1], sep = ", ")}}
+   #   titanic.full$cbid <- paste(titanic.full$Cabin[i], titanic.full$Cabin[i-1], sep = ", ")}
+   #   
+ 
+#      titanic.full$cbtix[i] <- regmatches(titanic.full$Cabin[i], gregexpr(("[[:alpha:]]"), titanic.full$Cabin[i]))
+#      titanic.full$cbtix[i] <- unique(titanic.full$Deck[i])}
+# #   } else {titanic.full$Deck[i] <- ""}
 # }
 # 
 # titanic.full$Deck <- ifelse(nchar(titanic.full$Cabin)>0, regmatches(titanic.full$Cabin, gregexpr(("[[:alpha:]]"), titanic.full$Cabin)), "")
