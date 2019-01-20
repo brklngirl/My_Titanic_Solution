@@ -397,26 +397,32 @@ levels(titanic.full$Title) <- gsub("[.]", "", ifelse(TL %in%  c("Don.", "Major."
 ## Let's check, if we got the desired large groups of Title
 table(titanic.full$Title, titanic.full$Sex)
 
+titanic.full$grouped <- paste(titanic.full$Pclass, titanic.full$Sex, titanic.full$Title, sep = " ")
+groupeddf <- aggregate(Age ~ grouped, data = filter(titanic.full, is.na(Age)==F), FUN = function(x) {mean(x)})
+
 ## we think, that person's title has more affect on their age
 ## Thus we want to fill NA's for each title based on avg value of that title
 
-impute.age <- function (age, title) {
+impute.age <- function (age, grouped) {
   vector <- age
   
   for ( i in 1:length(age)) {
     if(is.na(age[i])) {
-      if(title[i]=="Mrs") {
-        vector[i] <- round(mean(filter(titanic.full, Title == "Mrs")$Age, na.rm =T), 0)
-      } else if (title[i]=="Miss") {
-        vector[i] <- round(mean(filter(titanic.full, Title == "Miss")$Age, na.rm =T), 0)
-      } else if (title[i]=="Mr") {
-        vector[i] <- round(mean(filter(titanic.full, Title == "Mr")$Age, na.rm =T), 0)
-      }  else if (title[i]=="Master") {
-        vector[i] <- round(mean(filter(titanic.full, Title == "Master")$Age, na.rm =T), 0)
-      } else if (title[i]=="Dr") {
-        vector[i] <- round(mean(filter(titanic.full, Title == "Dr")$Age, na.rm =T), 0)
-      } else {
-      vector[i] <- age[i]}}}
+      
+      j <- integer()
+      for(j in 1:dim(groupeddf)[1]) {
+      if(grouped[i]==groupeddf$grouped[j]) {
+        vector[i] <- round(groupeddf$Age[j], 0)
+      # } else if (title[i]=="Miss") {
+      #   vector[i] <- round(mean(filter(titanic.full, Title == "Miss")$Age, na.rm =T), 0)
+      # } else if (title[i]=="Mr") {
+      #   vector[i] <- round(mean(filter(titanic.full, Title == "Mr")$Age, na.rm =T), 0)
+      # }  else if (title[i]=="Master") {
+      #   vector[i] <- round(mean(filter(titanic.full, Title == "Master")$Age, na.rm =T), 0)
+      # } else if (title[i]=="Dr") {
+      #   vector[i] <- round(mean(filter(titanic.full, Title == "Dr")$Age, na.rm =T), 0)
+      }}} else {
+      vector[i] <- age[i]}}
   return(vector)
 }
 
@@ -621,7 +627,7 @@ filter(titanic.full, LName == "Dodge")
 
 ## lets research Cabin info
 
-## first, we will try to fill na cb info
+## first, we will try to fill na cb info if tix are the same but missing cabin data
 titanic.full <- arrange(titanic.full, ID, TixNum, desc(Cabin))
 
 for(i in 2:dim(titanic.full)[1]){
@@ -634,6 +640,7 @@ for(i in 2:dim(titanic.full)[1]){
 ## the first letter in cabin num identifies deck
 titanic.full$Deck <- NA
 titanic.full$Deck <- factor(substr(titanic.full$Cabin, start =1, stop =1))
+titanic.full$hasdeck <- ifelse(titanic.full$Deck== "", 0, 1)
 
 titanic.full$CbNum <- NA
 titanic.full$OddEvenCb <- NA
@@ -676,10 +683,10 @@ for(i in 2:dim(titanic.full)[1]){ ## all cabins per ticket num
   }
 }
 
-misscb<- data.frame()
-misscb <- titanic.full %>% filter(TravelGrp > 1) %>% group_by(ID, TravelGrp, cbtix) %>% summarise(MismatchCb = n())
-misscb <- misscb %>% group_by(ID) %>% summarise(MismatchCb = n()) 
-misscb <- misscb %>% filter(MismatchCb >1)
+# misscb<- data.frame()
+# misscb <- titanic.full %>% filter(TravelGrp > 1) %>% group_by(ID, TravelGrp, cbtix) %>% summarise(MismatchCb = n())
+# misscb <- misscb %>% group_by(ID) %>% summarise(MismatchCb = n()) 
+# misscb <- misscb %>% filter(MismatchCb >1)
 
 titanic.full$cbtixall <- NA ## all cabins per ID
 titanic.full <- arrange(titanic.full, ID, TixNum, desc(cbtix))
@@ -687,11 +694,6 @@ titanic.full <- arrange(titanic.full, ID, TixNum, desc(cbtix))
 for(i in 2:dim(titanic.full)[1]){  ## all cabins per ID
   titanic.full$cbtixall[1] = titanic.full$cbtix[1]
   
-  # x <- integer()
-  # for(x in 1:dim(misscb)[1]){
-  #   
-  # if(titanic.full$ID[i] == misscb$ID[x]) { ## ID is in a list of ID's with mismatched cabins
-  #  
      if(titanic.full$ID[i] == titanic.full$ID[i-1]){ # if ID's are the same'
         if(titanic.full$TixNum[i] == titanic.full$TixNum[i-1]){ ## same tix num 
           
@@ -706,19 +708,9 @@ for(i in 2:dim(titanic.full)[1]){  ## all cabins per ID
           titanic.full$cbtixall[i] <- titanic.full$cbtix[i]}}
     
     if(titanic.full$ID[i] != titanic.full$ID[i-1]) { 
-      titanic.full$cbtixall[i] <- titanic.full$cbtix[i]} ## zdes seret
-    }
+      titanic.full$cbtixall[i] <- titanic.full$cbtix[i]} 
 }
 
-
-
-#      titanic.full$cbtix[i] <- regmatches(titanic.full$Cabin[i], gregexpr(("[[:alpha:]]"), titanic.full$Cabin[i]))
-#      titanic.full$cbtix[i] <- unique(titanic.full$Deck[i])}
-# #   } else {titanic.full$Deck[i] <- ""}
-# }
-# 
-# titanic.full$Deck <- ifelse(nchar(titanic.full$Cabin)>0, regmatches(titanic.full$Cabin, gregexpr(("[[:alpha:]]"), titanic.full$Cabin)), "")
-# titanic.full$Deck <- ifelse(nchar(titanic.full$Deck)>0, unique(titanic.full$Deck), "")
 str(titanic.full)
 
 table(titanic.full$Deck)
