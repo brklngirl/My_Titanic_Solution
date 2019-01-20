@@ -631,31 +631,6 @@ for(i in 2:dim(titanic.full)[1]){
     }}
 }
 
-titanic.full$cbtix <- NA
-# titanic.full$cbid <- NA
-
-
-for(i in 2:dim(titanic.full)[1]){
-  titanic.full$cbtix[1] = titanic.full$Cabin[1]
-  titanic.full$cbid[1] = titanic.full$Cabin[1]
-  if(titanic.full$TravelGrp >1) {
-    titanic.full$cbtx[i] == titanic.full$Cabin[i]
-  } else {
-    if(titanic.full$TixNum[i] == titanic.full$TixNum[i-1]){ ## same tix num &
-      
-      if(titanic.full$Cabin[i] == titanic.full$Cabin[i-1]) { ## a) same cabins
-        
-        titanic.full$cbtix[i] <- titanic.full$cbtix[i-1]}
-      else { titanic.full$cbtix[i] <- paste(titanic.full$cbtix[i-1], titanic.full$Cabin[i], sep = " ") ## b) diff cabins
-      } 
-    }}
-  
-  if(titanic.full$TixNum[i] != titanic.full$TixNum[i-1]){
-    titanic.full$cbtix[i] <- titanic.full$Cabin[i]
-  } else {""}
-}
-
-
 ## the first letter in cabin num identifies deck
 titanic.full$Deck <- NA
 titanic.full$Deck <- factor(substr(titanic.full$Cabin, start =1, stop =1))
@@ -671,8 +646,36 @@ for(i in 1:dim(titanic.full)[1]){ ## odd or even cabin
       titanic.full$OddEvenCb[i]<- "Even" } else {titanic.full$OddEvenCb[i]<- "Odd"}
   }
   else {""}
-  
 }
+
+
+titanic.full$cbtix <- NA
+
+for(i in 2:dim(titanic.full)[1]){ ## all cabins per ticket num
+  titanic.full$cbtix[1] = titanic.full$Cabin[1]
+      if(titanic.full$TravelGrp[i] == 1) {
+         titanic.full$cbtix[i] <- titanic.full$Cabin[i]
+   } 
+      if(titanic.full$TravelGrp[i] != 1) { ## if travel group > 1 (not single)
+          
+          if(titanic.full$TixNum[i] == titanic.full$TixNum[i-1]){ ## if same tix num &
+      
+               if(titanic.full$Cabin[i] == titanic.full$Cabin[i-1]) { ## a) if same cabins
+        
+               titanic.full$cbtix[i] <- titanic.full$cbtix[i-1]}
+            
+               if(titanic.full$Cabin[i] != titanic.full$Cabin[i-1]) { 
+                 
+            titanic.full$cbtix[i] <- paste(titanic.full$cbtix[i-1], titanic.full$Cabin[i], sep = " ")} ## b) diff cabins
+    }
+  
+          if(titanic.full$TixNum[i] != titanic.full$TixNum[i-1]){ ## diff tix
+          titanic.full$cbtix[i] <- titanic.full$Cabin[i]
+          } else {""}
+ #stringr
+  }
+}
+
 misscb<- data.frame()
 misscb <- titanic.full %>% filter(TravelGrp > 1) %>% group_by(ID, TravelGrp, cbtix) %>% summarise(MismatchCb = n())
 misscb <- misscb %>% group_by(ID) %>% summarise(MismatchCb = n()) 
@@ -680,30 +683,32 @@ misscb <- misscb %>% filter(MismatchCb >1)
 
 titanic.full$cbtixall <- NA ## all cabins per ID
 titanic.full <- arrange(titanic.full, ID, TixNum, desc(cbtix))
-for(i in 1:1309){
-  
+
+for(i in 2:dim(titanic.full)[1]){  ## all cabins per ID
   titanic.full$cbtixall[1] = titanic.full$cbtix[1]
-  x <- integer()
-  for(x in 1:dim(misscb)[1]){
+  
+  # x <- integer()
+  # for(x in 1:dim(misscb)[1]){
+  #   
+  # if(titanic.full$ID[i] == misscb$ID[x]) { ## ID is in a list of ID's with mismatched cabins
+  #  
+     if(titanic.full$ID[i] == titanic.full$ID[i-1]){ # if ID's are the same'
+        if(titanic.full$TixNum[i] == titanic.full$TixNum[i-1]){ ## same tix num 
+          
+           if(titanic.full$cbtix[i] == titanic.full$cbtix[i-1]) { ## a) same cabins
+            titanic.full$cbtixall[i] <- titanic.full$cbtix[i]}
+          
+           if(titanic.full$cbtix[i] != titanic.full$cbtix[i-1]) { ## b) diff cabins
+            titanic.full$cbtixall[i] <- titanic.full$cbtix[i-1] }
+        }
+        if(titanic.full$TixNum[i] != titanic.full$TixNum[i-1]){  ## diff tixnum
+        
+          titanic.full$cbtixall[i] <- titanic.full$cbtix[i]}}
     
-  if(titanic.full$ID[i] == misscb$ID[x]) { ## ID is in a list of ID's with mismatched cabins
-    
-    if(titanic.full$TixNum[i] == titanic.full$TixNum[i-1]){ ## same tix num 
-      
-       if(titanic.full$cbtix[i] == titanic.full$cbtix[i-1]) { ## a) same cabins
-        titanic.full$cbtixall[i] <- titanic.full$cbtix[i]}
-      
-      if(titanic.full$cbtix[i] != titanic.full$cbtix[i-1]) { 
-        titanic.full$cbtixall[i] <- titanic.full$cbtix[i-1] }## b) diff cabins
-    }
-    if(titanic.full$TixNum[i] != titanic.full$TixNum[i-1]){  ## diff tixnum
-    
-      titanic.full$cbtixall[i] <- titanic.full$cbtix[i]}}
-    
-    #else {titanic.full$cbtixall[i] <- titanic.full$cbtix[i]}
+    if(titanic.full$ID[i] != titanic.full$ID[i-1]) { 
+      titanic.full$cbtixall[i] <- titanic.full$cbtix[i]} ## zdes seret
     }
 }
-
 
 
 
